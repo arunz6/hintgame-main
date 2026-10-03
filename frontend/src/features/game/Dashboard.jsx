@@ -1,22 +1,35 @@
 // frontend/src/features/game/Dashboard.jsx
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import LevelView from "./LevelView";
 
 const serverUrl = (import.meta.env.VITE_SERVER_URL || "http://localhost:3000").replace(/\/$/, "");
 
 export default function Dashboard({ team, onLogout }) {
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [activeLevel, setActiveLevel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sneaky, setSneaky] = useState(null);
   const refreshCalled = useRef(false);
 
-  async function load() {
-    const res = await fetch(`${serverUrl}/api/game/levels/${team.id}`);
-    const json = await res.json();
-    setData(json);
-    setLoading(false);
-  }
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`${serverUrl}/api/game/levels/${team.id}`);
+      const json = await res.json();
+      if (!res.ok || !json.team || !Array.isArray(json.levels)) {
+        setLoadError(json.message || "Could not load team and level data.");
+        setData(null);
+        return;
+      }
+      setLoadError("");
+      setData(json);
+    } catch {
+      setLoadError("Could not connect to the game server.");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [team.id]);
 
   // Called ONCE per page load
   useEffect(() => {
@@ -37,13 +50,13 @@ export default function Dashboard({ team, onLogout }) {
       } catch {}
       load();
     })();
-  }, []);
+  }, [load, team.id]);
 
   // Poll every 5s (no penalty)
   useEffect(() => {
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [load]);
 
   function handleLogout() {
     sessionStorage.removeItem("hintgame.session");
@@ -51,9 +64,10 @@ export default function Dashboard({ team, onLogout }) {
   }
 
   if (loading) return <main className="login-page"><p>Loading…</p></main>;
+  if (loadError) return <main className="login-page"><p>{loadError}</p></main>;
   if (!data) return <main className="login-page"><p>Could not load levels.</p></main>;
 
-  if (data.team.status === "eliminated") {
+  if (data.team?.status === "eliminated") {
     return (
       <main className="login-page">
         <section className="login-panel">
@@ -91,7 +105,7 @@ export default function Dashboard({ team, onLogout }) {
       {data.warning && <div className="warning-banner">{data.warning}</div>}
 
       <section className="levels-grid">
-        {data.levels.map((lv) => (
+        {data.levels?.length ? data.levels.map((lv) => (
           <button
             key={lv.number}
             className={`level-card ${lv.locked ? "locked" : ""} ${lv.completed ? "completed" : ""}`}
@@ -104,7 +118,7 @@ export default function Dashboard({ team, onLogout }) {
               {lv.completed ? "✅ Completed" : lv.locked ? "🔒 Locked" : "▶ Play"}
             </span>
           </button>
-        ))}
+        )) : <p>No levels found. Add level data to the hintgame database.</p>}
       </section>
     </main>
   );

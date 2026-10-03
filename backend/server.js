@@ -9,7 +9,9 @@ const startServer = async () => {
     throw new Error("MONGODB_URI must be set before starting the backend.");
   }
 
-  await mongoose.connect(process.env.MONGODB_URI);
+  await mongoose.connect(process.env.MONGODB_URI, {
+    dbName: process.env.MONGODB_DB || "hintgame",
+  });
 
   const httpServer = createServer(app);
   initSocket(httpServer);

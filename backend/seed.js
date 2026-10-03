@@ -63,14 +63,25 @@ const levels = [
 ];
 
 const run = async () => {
-  await mongoose.connect(process.env.MONGODB_URI);
-  await Level.deleteMany({});
-  await Level.insertMany(levels);
+  await mongoose.connect(process.env.MONGODB_URI, {
+    dbName: process.env.MONGODB_DB || "hintgame",
+  });
+  await Level.bulkWrite(
+    levels.map((level) => ({
+      updateOne: {
+        filter: { number: level.number },
+        update: { $set: level },
+        upsert: true,
+      },
+    }))
+  );
   console.log("✅ Seeded 4 levels with per-group clues and codes");
-  process.exit(0);
+  await mongoose.disconnect();
 };
 
 run().catch((e) => {
   console.error(e);
-  process.exit(1);
+  mongoose.disconnect().finally(() => {
+    process.exitCode = 1;
+  });
 });
