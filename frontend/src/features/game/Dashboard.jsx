@@ -1,0 +1,111 @@
+// frontend/src/features/game/Dashboard.jsx
+import { useEffect, useState, useRef } from "react";
+import LevelView from "./LevelView";
+
+const serverUrl = (import.meta.env.VITE_SERVER_URL || "http://localhost:3000").replace(/\/$/, "");
+
+export default function Dashboard({ team, onLogout }) {
+  const [data, setData] = useState(null);
+  const [activeLevel, setActiveLevel] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sneaky, setSneaky] = useState(null);
+  const refreshCalled = useRef(false);
+
+  async function load() {
+    const res = await fetch(`${serverUrl}/api/game/levels/${team.id}`);
+    const json = await res.json();
+    setData(json);
+    setLoading(false);
+  }
+
+  // Called ONCE per page load
+  useEffect(() => {
+    if (refreshCalled.current) return;
+    refreshCalled.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`${serverUrl}/api/game/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamId: team.id }),
+        });
+        const json = await res.json();
+        if (json.applied) {
+          setSneaky(json.message);
+          setTimeout(() => setSneaky(null), 8000);
+        }
+      } catch {}
+      load();
+    })();
+  }, []);
+
+  // Poll every 5s (no penalty)
+  useEffect(() => {
+    const id = setInterval(load, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  function handleLogout() {
+    sessionStorage.removeItem("hintgame.session");
+    onLogout();
+  }
+
+  if (loading) return <main className="login-page"><p>Loading…</p></main>;
+  if (!data) return <main className="login-page"><p>Could not load levels.</p></main>;
+
+  if (data.team.status === "eliminated") {
+    return (
+      <main className="login-page">
+        <section className="login-panel">
+          <h1>You lose 😔</h1>
+          <p className="panel-copy">Your team has been eliminated from the Hint Game. Better luck next time.</p>
+          <button className="text-button" onClick={handleLogout}>Sign out</button>
+        </section>
+      </main>
+    );
+  }
+
+  if (activeLevel)
+    return (
+      <LevelView
+        team={team}
+        levelNumber={activeLevel}
+        onBack={() => { setActiveLevel(null); load(); }}
+      />
+    );
+
+  return (
+    <main className="dashboard-page">
+      <header className="dash-header">
+        <div>
+          <p className="eyebrow">HINTGAME / TEAM DASHBOARD</p>
+          <h1>{data.team.teamName}</h1>
+          <p className="panel-copy">
+            Team code: <strong>{data.team.teamCode}</strong> · Level {data.team.currentLevel}
+          </p>
+        </div>
+        <button className="text-button" onClick={handleLogout}>Sign out</button>
+      </header>
+
+      {sneaky && <div className="warning-banner sneaky">{sneaky}</div>}
+      {data.warning && <div className="warning-banner">{data.warning}</div>}
+
+      <section className="levels-grid">
+        {data.levels.map((lv) => (
+          <button
+            key={lv.number}
+            className={`level-card ${lv.locked ? "locked" : ""} ${lv.completed ? "completed" : ""}`}
+            disabled={lv.locked}
+            onClick={() => setActiveLevel(lv.number)}
+          >
+            <span className="level-number">0{lv.number}</span>
+            <span className="level-title">{lv.title}</span>
+            <span className="level-status">
+              {lv.completed ? "✅ Completed" : lv.locked ? "🔒 Locked" : "▶ Play"}
+            </span>
+          </button>
+        ))}
+      </section>
+    </main>
+  );
+}
