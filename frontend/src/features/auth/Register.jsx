@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 const serverUrl = (
   import.meta.env.VITE_SERVER_URL || "http://localhost:3000"
@@ -22,18 +23,28 @@ function Register() {
   }
 
   function addMember() {
-    setMembers((currentMembers) => [...currentMembers, ""]);
+    setMembers((currentMembers) =>
+      currentMembers.length < 5 ? [...currentMembers, ""] : currentMembers,
+    );
   }
 
   function removeMember(index) {
     setMembers((currentMembers) =>
-      currentMembers.filter((_, memberIndex) => memberIndex !== index),
+      currentMembers.length > 2
+        ? currentMembers.filter((_, memberIndex) => memberIndex !== index)
+        : currentMembers,
     );
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+
+    if (members.length < 2 || members.length > 5) {
+      setError("A team must have 2 to 5 members.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -78,9 +89,9 @@ function Register() {
           <p className="panel-copy">
             <strong>{registeredTeam}</strong> is ready. Sign in to continue.
           </p>
-          <a className="submit-button link-button" href="/login">
+          <Link className="submit-button link-button" to="/login">
             Go to sign in <span aria-hidden="true">→</span>
-          </a>
+          </Link>
         </section>
       </main>
     );
@@ -144,7 +155,7 @@ function Register() {
 
           <div className="members-heading">
             <span>Team members</span>
-            <span className="member-count">{members.length} / 5</span>
+            <span className="member-count">{members.length} / 5 members (minimum 2)</span>
           </div>
           <div className="member-fields">
             {members.map((member, index) => (
@@ -205,7 +216,7 @@ function Register() {
         </form>
 
         <p className="auth-switch">
-          Already have a team? <a href="/login">Sign in</a>
+          Already have a team? <Link to="/login">Sign in</Link>
         </p>
       </section>
     </main>

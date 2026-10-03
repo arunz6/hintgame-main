@@ -36,14 +36,14 @@ export async function registerTeam(req, res) {
     if (normalizedMembers.some((name) => !name)) {
       return res.status(400).json({ message: "Every team member needs a name." });
     }
-    if (normalizedMembers.length < 1 || normalizedMembers.length > 6) {
-      return res.status(400).json({ message: "A team must have 1 to 6 members." });
+    if (normalizedMembers.length < 2 || normalizedMembers.length > 5) {
+      return res.status(400).json({ message: "A team must have 2 to 5 members." });
     }
     if (password.length < 8) {
       return res.status(400).json({ message: "Password must be at least 8 characters." });
     }
 
-    const normalizedGroup = ["A", "B", "C"].includes(group) ? group : "A";
+    const normalizedGroup = ["A", "B", "C", "D"].includes(group) ? group : "A";
 
     const team = await Team.create({
       teamName: teamName.trim(),

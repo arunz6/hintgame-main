@@ -62,6 +62,19 @@ const levels = [
   },
 ];
 
+for (const level of levels) {
+  for (const group of ["A", "B", "C", "D"]) {
+    const groupData = level.groups[group] || {
+      clue: `Add the Set ${group} clue in the admin panel.`,
+      secretCode: `LEVEL${level.number}${group}`,
+    };
+    level.groups[group] = {
+      ...groupData,
+      mcq: { ...level.mcq, options: [...level.mcq.options] },
+    };
+  }
+}
+
 const run = async () => {
   await mongoose.connect(process.env.MONGODB_URI, {
     dbName: process.env.MONGODB_DB || "hintgame",

@@ -13,7 +13,7 @@ const teamSchema = new mongoose.Schema(
 
     group: {
       type: String,
-      enum: ["A", "B", "C"],
+      enum: ["A", "B", "C", "D"],
       required: true,
     },
 
@@ -22,8 +22,8 @@ const teamSchema = new mongoose.Schema(
     members: {
       type: [memberSchema],
       validate: {
-        validator: (v) => v.length >= 1 && v.length <= 6,
-        message: "Team must have 1 to 6 members.",
+        validator: (v) => v.length >= 2 && v.length <= 5,
+        message: "Team must have 2 to 5 members.",
       },
     },
 

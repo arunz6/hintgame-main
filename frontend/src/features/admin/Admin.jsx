@@ -1,9 +1,11 @@
 // frontend/src/features/admin/Admin.jsx
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 const serverUrl = (import.meta.env.VITE_SERVER_URL || "http://localhost:3000").replace(/\/$/, "");
-const MAX_MEMBERS = 6;
-const GROUPS = ["A", "B", "C"];
+const MIN_MEMBERS = 2;
+const MAX_MEMBERS = 5;
+const GROUPS = ["A", "B", "C", "D"];
 
 function EditableField({ label, value, onSave }) {
   const [draft, setDraft] = useState(value);
@@ -74,6 +76,13 @@ export default function Admin() {
   const [key, setKey] = useState("");
   const [authed, setAuthed] = useState(false);
   const [teams, setTeams] = useState([]);
+  const [levelDocs, setLevelDocs] = useState([]);
+  const [selectedSet, setSelectedSet] = useState("A");
+  const [setDrafts, setSetDrafts] = useState([]);
+  const [levelMessage, setLevelMessage] = useState("");
+  const [levelSaveFailed, setLevelSaveFailed] = useState(false);
+  const [savingLevel, setSavingLevel] = useState(false);
+  const [finalizingSet, setFinalizingSet] = useState(false);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState({});
   const [newTeam, setNewTeam] = useState({
@@ -81,7 +90,7 @@ export default function Admin() {
     teamCode: "",
     password: "",
     group: "A",
-    members: ["", "", "", "", ""],
+    members: ["", ""],
   });
 
   async function api(path, body) {
@@ -95,14 +104,103 @@ export default function Admin() {
     return json;
   }
 
-  async function load() {
+  async function load(includeLevels = false) {
     try {
-      const json = await api("/api/admin/overview");
-      setTeams(json.teams);
+      const overview = await api("/api/admin/overview");
+      setTeams(overview.teams);
+      if (includeLevels) {
+        const levelData = await api("/api/admin/levels");
+        setLevelDocs(levelData.levels);
+      }
       setAuthed(true);
       setError("");
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  useEffect(() => {
+    setSetDrafts([1, 2, 3, 4].map((number) => {
+      const level = levelDocs.find((item) => item.number === number);
+      const setData = level?.groups?.[selectedSet];
+      const mcq = setData?.mcq?.question ? setData.mcq : level?.mcq;
+      return {
+        number,
+        question: mcq?.question || "",
+        options: Array.from({ length: 4 }, (_, index) => mcq?.options?.[index] || ""),
+        correctIndex: Number.isInteger(mcq?.correctIndex) ? mcq.correctIndex : 0,
+        clue: setData?.clue || "",
+        secretCode: setData?.secretCode || "",
+      };
+    }));
+    setLevelMessage("");
+  }, [levelDocs, selectedSet]);
+
+  const selectedSetFinalized = [1, 2, 3, 4].every((number) =>
+    levelDocs.find((level) => level.number === number)?.groups?.[selectedSet]?.finalized === true
+  );
+
+  function updateLevelDraft(number, patch) {
+    setSetDrafts((drafts) => drafts.map((draft) =>
+      draft.number === number ? { ...draft, ...patch } : draft
+    ));
+  }
+
+  async function handleSaveQuestionSet(event) {
+    event.preventDefault();
+    setLevelMessage("");
+    setSavingLevel(true);
+    try {
+      const levels = setDrafts.map((draft) => {
+        const lastOption = draft.options.reduce(
+          (last, option, index) => option.trim() ? index : last,
+          -1,
+        );
+        if (draft.options.slice(0, lastOption + 1).some((option) => !option.trim())) {
+          throw new Error(`Level ${draft.number}: fill answer options in order without gaps.`);
+        }
+        return {
+          number: draft.number,
+          title: `Level ${draft.number}`,
+          question: draft.question,
+          options: draft.options.slice(0, lastOption + 1),
+          correctIndex: draft.correctIndex,
+          clue: draft.clue,
+          secretCode: draft.secretCode,
+        };
+      });
+      const saved = await api("/api/admin/levels/sets", {
+        group: selectedSet,
+        levels,
+      });
+      setLevelDocs(saved.levels);
+      setLevelSaveFailed(false);
+      setLevelMessage(saved.message);
+    } catch (saveError) {
+      setLevelSaveFailed(true);
+      setLevelMessage(saveError.message);
+    } finally {
+      setSavingLevel(false);
+    }
+  }
+
+  async function handleFinalizeSet(finalized) {
+    setLevelMessage("");
+    setFinalizingSet(true);
+    try {
+      const result = await api("/api/admin/levels/sets/finalize", {
+        group: selectedSet,
+        finalized,
+      });
+      const levelData = await api("/api/admin/levels");
+      setLevelDocs(levelData.levels);
+      setLevelSaveFailed(false);
+      setLevelMessage(result.message);
+    } catch (statusError) {
+      setLevelSaveFailed(true);
+      setLevelMessage(statusError.message);
+    } finally {
+      setFinalizingSet(false);
     }
   }
 
@@ -116,19 +214,19 @@ export default function Admin() {
     e.preventDefault();
     try {
       await api("/api/admin/add-team", newTeam);
-      setNewTeam({ teamName: "", teamCode: "", password: "", group: "A", members: ["", "", "", "", ""] });
+      setNewTeam({ teamName: "", teamCode: "", password: "", group: "A", members: ["", ""] });
       load();
     } catch (e) {
       alert(e.message);
     }
   }
 
-  function addSixthSlot() {
+  function addMemberSlot() {
     if (newTeam.members.length < MAX_MEMBERS)
       setNewTeam({ ...newTeam, members: [...newTeam.members, ""] });
   }
-  function removeLastSlot() {
-    if (newTeam.members.length > 5)
+  function removeMemberSlot() {
+    if (newTeam.members.length > MIN_MEMBERS)
       setNewTeam({ ...newTeam, members: newTeam.members.slice(0, -1) });
   }
 
@@ -187,7 +285,7 @@ export default function Admin() {
             placeholder="Admin key"
             type="password"
           />
-          <button className="submit-button" onClick={load}>Enter <span>→</span></button>
+          <button className="submit-button" onClick={() => load(true)}>Enter <span>→</span></button>
           {error && <p className="login-error">{error}</p>}
         </section>
       </main>
@@ -202,11 +300,114 @@ export default function Admin() {
           <h1>Control Panel</h1>
           <p className="panel-copy">{teams.length} teams · live updates every 5s</p>
         </div>
-        <a className="text-button" href="/leaderboard">View leaderboard →</a>
+        <Link className="text-button" to="/leaderboard">View leaderboard →</Link>
       </header>
 
       <section className="level-card-large">
-        <h2>Add a new team (5 members default, 6th optional)</h2>
+        <h2>Manage all questions for a set</h2>
+        <p className="panel-copy">
+          Enter all four levels for one set, save them together, then finalize the set to make it playable.
+        </p>
+        <div className="admin-form">
+          <label htmlFor="question-set">Question set</label>
+          <select
+            id="question-set"
+            value={selectedSet}
+            onChange={(event) => {
+              setLevelMessage("");
+              setSelectedSet(event.target.value);
+            }}
+          >
+            {GROUPS.map((group) => (
+              <option key={group} value={group}>Set {group}</option>
+            ))}
+          </select>
+          <p className="panel-copy">
+            Status: <strong>{selectedSetFinalized ? "Finalized (locked)" : "Draft (not playable yet)"}</strong>
+          </p>
+          <form onSubmit={handleSaveQuestionSet}>
+            {setDrafts.map((draft) => (
+              <fieldset className="level-card-large" key={draft.number} disabled={selectedSetFinalized || savingLevel}>
+                <legend>Level {draft.number}</legend>
+                <label htmlFor={`question-${draft.number}`}>Question</label>
+                <textarea
+                  id={`question-${draft.number}`}
+                  value={draft.question}
+                  onChange={(event) => updateLevelDraft(draft.number, { question: event.target.value })}
+                  required
+                  rows={2}
+                />
+                <label>Answer options (2–4)</label>
+                {draft.options.map((option, index) => (
+                  <div className="admin-grid-4" key={index}>
+                    <label>
+                      <input
+                        type="radio"
+                        name={`correct-${draft.number}`}
+                        checked={draft.correctIndex === index}
+                        onChange={() => updateLevelDraft(draft.number, { correctIndex: index })}
+                      />
+                      Correct
+                    </label>
+                    <input
+                      aria-label={`Level ${draft.number} option ${index + 1}`}
+                      value={option}
+                      onChange={(event) => {
+                        const options = [...draft.options];
+                        options[index] = event.target.value;
+                        updateLevelDraft(draft.number, { options });
+                      }}
+                      required={index < 2}
+                    />
+                  </div>
+                ))}
+                <label htmlFor={`clue-${draft.number}`}>Clue</label>
+                <textarea
+                  id={`clue-${draft.number}`}
+                  value={draft.clue}
+                  onChange={(event) => updateLevelDraft(draft.number, { clue: event.target.value })}
+                  required
+                  rows={2}
+                />
+                <label htmlFor={`code-${draft.number}`}>Secret code</label>
+                <input
+                  id={`code-${draft.number}`}
+                  value={draft.secretCode}
+                  onChange={(event) => updateLevelDraft(draft.number, { secretCode: event.target.value.toUpperCase() })}
+                  required
+                />
+              </fieldset>
+            ))}
+            {levelMessage && (
+              <p className={levelSaveFailed ? "login-error" : "panel-copy"} role="status">
+                {levelMessage}
+              </p>
+            )}
+            {!selectedSetFinalized && (
+              <button className="submit-button" type="submit" disabled={savingLevel || finalizingSet}>
+                {savingLevel ? "Saving all 4 levels..." : `Save all 4 levels in Set ${selectedSet}`}
+                <span>→</span>
+              </button>
+            )}
+          </form>
+          <button
+            className="submit-button"
+            type="button"
+            onClick={() => handleFinalizeSet(!selectedSetFinalized)}
+            disabled={savingLevel || finalizingSet}
+          >
+            {finalizingSet
+              ? "Updating set..."
+              : selectedSetFinalized
+                ? `Reopen Set ${selectedSet} for editing`
+                : `Finalize and lock Set ${selectedSet}`}
+            <span>→</span>
+          </button>
+        </div>
+      </section>
+
+      <section className="level-card-large">
+        <h2>Add a new team (2 to 5 members)</h2>
         <form onSubmit={handleAddTeam} className="admin-form">
           <div className="admin-grid-4">
             <div>
@@ -229,7 +430,7 @@ export default function Admin() {
             </div>
           </div>
 
-          <label style={{ marginTop: 14 }}>Members ({newTeam.members.length}/6)</label>
+          <label style={{ marginTop: 14 }}>Members ({newTeam.members.length}/5, minimum 2)</label>
           <div className="admin-grid-5">
             {newTeam.members.map((m, i) => (
               <input
@@ -247,13 +448,14 @@ export default function Admin() {
           </div>
 
           <div style={{ display: "flex", gap: 12, marginTop: 10, alignItems: "center" }}>
-            {newTeam.members.length < MAX_MEMBERS ? (
-              <button type="button" className="text-button" onClick={addSixthSlot}>
-                + Add 6th member (optional)
+            {newTeam.members.length < MAX_MEMBERS && (
+              <button type="button" className="text-button" onClick={addMemberSlot}>
+                + Add member
               </button>
-            ) : (
-              <button type="button" className="text-button danger" onClick={removeLastSlot}>
-                − Remove 6th member
+            )}
+            {newTeam.members.length > MIN_MEMBERS && (
+              <button type="button" className="text-button danger" onClick={removeMemberSlot}>
+                − Remove last member
               </button>
             )}
           </div>
@@ -284,7 +486,7 @@ export default function Admin() {
                     <span>·</span>
                     <span>{t.status}</span>
                     <span>·</span>
-                    <span>{t.members.length}/6 members</span>
+                    <span>{t.members.length}/5 members</span>
                     {t.lockedNow && (
                       <>
                         <span>·</span>
@@ -316,7 +518,7 @@ export default function Admin() {
                       <EditableGroup value={t.group} onSave={(v) => v !== t.group && handleUpdateTeam(t.id, { group: v })} />
                     </div>
 
-                    <h3 className="admin-subhead">Members ({t.members.length}/6)</h3>
+                    <h3 className="admin-subhead">Members ({t.members.length}/5)</h3>
                     <div className="member-list">
                       {t.members.map((m) => (
                         <MemberRow key={m.id} teamId={t.id} member={m} onSave={handleUpdateMember} onDelete={handleDeleteMember} />
@@ -333,7 +535,7 @@ export default function Admin() {
                         }}
                       >
                         <input name="memberName" placeholder="New member name" />
-                        <button className="text-button" type="submit">+ Add member ({t.members.length}/6)</button>
+                        <button className="text-button" type="submit">+ Add member ({t.members.length}/5)</button>
                       </form>
                     )}
                   </div>

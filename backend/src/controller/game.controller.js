@@ -19,6 +19,26 @@ const publicTeam = (team) => ({
   completionRank: team.completionRank,
 });
 
+function getGroupQuestion(level, group) {
+  return level.groups?.[group]?.mcq?.question
+    ? level.groups[group].mcq
+    : level.mcq;
+}
+
+function groupIsConfigured(level, group) {
+  const groupData = level.groups?.[group];
+  const mcq = getGroupQuestion(level, group);
+  return Boolean(
+    groupData?.clue &&
+      groupData?.secretCode &&
+    groupData?.finalized === true &&
+    mcq?.question &&
+      Array.isArray(mcq.options) &&
+      mcq.options.length >= 2 &&
+      Number.isInteger(mcq.correctIndex)
+  );
+}
+
 /* ---------- GET LEVELS ---------- */
 export async function getLevels(req, res) {
   try {
@@ -107,11 +127,15 @@ export async function getLevelDetail(req, res) {
     const lockActive = team.lockUntil && team.lockUntil > new Date();
 
     const groupData = level.groups[team.group];
+    if (!groupIsConfigured(level, team.group))
+      return res.status(503).json({
+        message: `Set ${team.group} for Level ${level.number} is not finalized yet.`,
+      });
 
     return res.json({
       number: level.number,
       title: level.title,
-      mcq: level.mcq,
+      mcq: getGroupQuestion(level, team.group),
       group: team.group,
       // only send this team's group clue
       clue: solved ? groupData.clue : null,
@@ -141,7 +165,14 @@ export async function submitAnswer(req, res) {
     const lv = await Level.findOne({ number: level });
     if (!lv) return res.status(404).json({ message: "Level not found." });
 
-    if (answerIndex !== lv.mcq.correctIndex) {
+    if (!groupIsConfigured(lv, team.group))
+      return res.status(503).json({
+        message: `Set ${team.group} for Level ${lv.number} is not finalized yet.`,
+      });
+
+    const groupData = lv.groups[team.group];
+    const groupMcq = getGroupQuestion(lv, team.group);
+    if (answerIndex !== groupMcq.correctIndex) {
       team.lockUntil = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
       team.wrongAttempts = (team.wrongAttempts || 0) + 1;
       team.penaltySeconds = (team.penaltySeconds || 0) + LOCK_MINUTES * 60;
@@ -166,7 +197,6 @@ export async function submitAnswer(req, res) {
     await maybeEliminate(level);
 
     // send THIS team's group clue
-    const groupData = lv.groups[team.group];
     return res.json({ correct: true, clue: groupData.clue });
   } catch (e) {
     console.error(e);
@@ -187,6 +217,10 @@ export async function submitCode(req, res) {
     if (!lv) return res.status(404).json({ message: "Level not found." });
 
     // check against this team's group code ONLY
+    if (!groupIsConfigured(lv, team.group))
+      return res.status(503).json({
+        message: `Set ${team.group} for Level ${lv.number} is not finalized yet.`,
+      });
     const correctCode = lv.groups[team.group].secretCode;
 
     if (String(code).trim().toUpperCase() !== correctCode)

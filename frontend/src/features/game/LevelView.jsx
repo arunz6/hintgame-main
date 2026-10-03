@@ -1,5 +1,6 @@
 // frontend/src/features/game/LevelView.jsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const serverUrl = (import.meta.env.VITE_SERVER_URL || "http://localhost:3000").replace(/\/$/, "");
 
@@ -12,6 +13,8 @@ function formatCountdown(ms) {
 }
 
 export default function LevelView({ team, levelNumber, onBack }) {
+  const navigate = useNavigate();
+  const goBack = onBack || (() => navigate("/dashboard"));
   const [level, setLevel] = useState(null);
   const [clue, setClue] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -66,7 +69,7 @@ export default function LevelView({ team, levelNumber, onBack }) {
     const json = await res.json();
     if (!res.ok) return setMessage(json.message || "Wrong code.");
     setMessage("🎉 Level unlocked!");
-    setTimeout(onBack, 900);
+    setTimeout(goBack, 900);
   }
 
   if (loading) return <main className="login-page"><p>Loading level…</p></main>;
@@ -74,7 +77,7 @@ export default function LevelView({ team, levelNumber, onBack }) {
 
   return (
     <main className="level-page">
-      <button className="text-button" onClick={onBack}>← Back</button>
+      <button className="text-button" onClick={goBack}>← Back</button>
       <h1>{level.title}</h1>
 
       {locked && (

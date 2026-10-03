@@ -11,6 +11,9 @@ import {
   deleteMember,
   disqualify,
   resetLock,
+  getLevels,
+  saveQuestionSet,
+  setQuestionSetFinalized,
 } from "../controller/admin.controller.js";
 
 const router = Router();
@@ -25,5 +28,8 @@ router.post("/add-member", addMember);
 router.post("/delete-member", deleteMember);
 router.post("/disqualify", disqualify);
 router.post("/reset-lock", resetLock);
+router.get("/levels", getLevels);
+router.post("/levels/sets", saveQuestionSet);
+router.post("/levels/sets/finalize", setQuestionSetFinalized);
 
 export default router;

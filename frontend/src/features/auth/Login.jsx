@@ -1,5 +1,6 @@
 // frontend/src/features/auth/Login.jsx
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const SESSION_KEY = "hintgame.session";
 const serverUrl = (
@@ -15,6 +16,7 @@ function readSession() {
 }
 
 function Login() {
+  const navigate = useNavigate();
   const [session, setSession] = useState(readSession);
   const [teamName, setTeamName] = useState("");
   const [password, setPassword] = useState("");
@@ -41,6 +43,7 @@ function Login() {
 
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(result));
       setSession(result);
+      navigate("/dashboard", { replace: true });
     } catch (requestError) {
       setError(
         requestError instanceof TypeError
@@ -125,6 +128,9 @@ function Login() {
 
         <p className="secure-note">
           <span aria-hidden="true">●</span> Your team progress stays together
+        </p>
+        <p className="auth-switch">
+          Need a team? <Link to="/register">Create one</Link>
         </p>
       </section>
     </main>

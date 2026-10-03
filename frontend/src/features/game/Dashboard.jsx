@@ -1,13 +1,13 @@
 // frontend/src/features/game/Dashboard.jsx
 import { useEffect, useState, useRef, useCallback } from "react";
-import LevelView from "./LevelView";
+import { useNavigate } from "react-router-dom";
 
 const serverUrl = (import.meta.env.VITE_SERVER_URL || "http://localhost:3000").replace(/\/$/, "");
 
-export default function Dashboard({ team, onLogout }) {
+export default function Dashboard({ team }) {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState("");
-  const [activeLevel, setActiveLevel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sneaky, setSneaky] = useState(null);
   const refreshCalled = useRef(false);
@@ -60,7 +60,7 @@ export default function Dashboard({ team, onLogout }) {
 
   function handleLogout() {
     sessionStorage.removeItem("hintgame.session");
-    onLogout();
+    navigate("/login", { replace: true });
   }
 
   if (loading) return <main className="login-page"><p>Loading…</p></main>;
@@ -78,15 +78,6 @@ export default function Dashboard({ team, onLogout }) {
       </main>
     );
   }
-
-  if (activeLevel)
-    return (
-      <LevelView
-        team={team}
-        levelNumber={activeLevel}
-        onBack={() => { setActiveLevel(null); load(); }}
-      />
-    );
 
   return (
     <main className="dashboard-page">
@@ -110,7 +101,7 @@ export default function Dashboard({ team, onLogout }) {
             key={lv.number}
             className={`level-card ${lv.locked ? "locked" : ""} ${lv.completed ? "completed" : ""}`}
             disabled={lv.locked}
-            onClick={() => setActiveLevel(lv.number)}
+            onClick={() => navigate(`/game/level/${lv.number}`)}
           >
             <span className="level-number">0{lv.number}</span>
             <span className="level-title">{lv.title}</span>
