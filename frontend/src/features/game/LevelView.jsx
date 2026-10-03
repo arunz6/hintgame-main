@@ -1,8 +1,8 @@
 // frontend/src/features/game/LevelView.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const serverUrl = (import.meta.env.VITE_SERVER_URL || "http://localhost:3000").replace(/\/$/, "");
+import { getTeamSessionHeaders } from "../../app/team-session";
+import { serverUrl } from "../../app/api-config";
 
 function formatCountdown(ms) {
   if (ms <= 0) return "00:00";
@@ -26,7 +26,9 @@ export default function LevelView({ team, levelNumber, onBack }) {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${serverUrl}/api/game/level/${levelNumber}?teamId=${team.id}`);
+      const res = await fetch(`${serverUrl}/api/game/level/${levelNumber}?teamId=${team.id}`, {
+        headers: getTeamSessionHeaders(),
+      });
       const json = await res.json();
       setLevel(json);
       setClue(json.clue);
@@ -47,7 +49,10 @@ export default function LevelView({ team, levelNumber, onBack }) {
     setMessage("");
     const res = await fetch(`${serverUrl}/api/game/answer`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getTeamSessionHeaders(),
+      },
       body: JSON.stringify({ teamId: team.id, level: levelNumber, answerIndex: selected }),
     });
     const json = await res.json();
@@ -63,7 +68,10 @@ export default function LevelView({ team, levelNumber, onBack }) {
     setMessage("");
     const res = await fetch(`${serverUrl}/api/game/unlock`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getTeamSessionHeaders(),
+      },
       body: JSON.stringify({ teamId: team.id, level: levelNumber, code }),
     });
     const json = await res.json();

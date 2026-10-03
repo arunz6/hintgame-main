@@ -82,6 +82,7 @@ export async function loginTeam(req, res) {
     }
 
     team.activeSessionId = randomUUID();
+    team.activeSessionExpiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
     await team.save();
 
     return res.status(200).json({
@@ -92,5 +93,17 @@ export async function loginTeam(req, res) {
   } catch (error) {
     console.error("Team login failed:", error);
     return res.status(500).json({ message: "Could not log in." });
+  }
+}
+
+export async function logoutTeam(req, res) {
+  try {
+    req.team.activeSessionId = null;
+    req.team.activeSessionExpiresAt = null;
+    await req.team.save();
+    return res.json({ message: "Signed out successfully." });
+  } catch (error) {
+    console.error("Team logout failed:", error);
+    return res.status(500).json({ message: "Could not sign out." });
   }
 }

@@ -28,6 +28,7 @@ const teamSchema = new mongoose.Schema(
     },
 
     activeSessionId: { type: String, default: null },
+    activeSessionExpiresAt: { type: Date, default: null },
     status: {
       type: String,
       enum: ["not_started", "playing", "eliminated", "finished"],

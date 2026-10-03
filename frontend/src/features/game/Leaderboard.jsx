@@ -1,7 +1,6 @@
 // frontend/src/features/game/Leaderboard.jsx
 import { useEffect, useState } from "react";
-
-const serverUrl = (import.meta.env.VITE_SERVER_URL || "http://localhost:3000").replace(/\/$/, "");
+import { serverUrl } from "../../app/api-config";
 
 function medalEmoji(rank) {
   if (rank === "gold") return "🥇";

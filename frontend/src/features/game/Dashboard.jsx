@@ -1,8 +1,8 @@
 // frontend/src/features/game/Dashboard.jsx
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-
-const serverUrl = (import.meta.env.VITE_SERVER_URL || "http://localhost:3000").replace(/\/$/, "");
+import { getTeamSessionHeaders } from "../../app/team-session";
+import { serverUrl } from "../../app/api-config";
 
 export default function Dashboard({ team }) {
   const navigate = useNavigate();
@@ -14,7 +14,9 @@ export default function Dashboard({ team }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`${serverUrl}/api/game/levels/${team.id}`);
+      const res = await fetch(`${serverUrl}/api/game/levels/${team.id}`, {
+        headers: getTeamSessionHeaders(),
+      });
       const json = await res.json();
       if (!res.ok || !json.team || !Array.isArray(json.levels)) {
         setLoadError(json.message || "Could not load team and level data.");
@@ -39,7 +41,10 @@ export default function Dashboard({ team }) {
       try {
         const res = await fetch(`${serverUrl}/api/game/refresh`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getTeamSessionHeaders(),
+          },
           body: JSON.stringify({ teamId: team.id }),
         });
         const json = await res.json();
@@ -59,6 +64,10 @@ export default function Dashboard({ team }) {
   }, [load]);
 
   function handleLogout() {
+    fetch(`${serverUrl}/api/teams/logout`, {
+      method: "POST",
+      headers: getTeamSessionHeaders(),
+    }).catch((error) => console.error("Could not invalidate team session:", error));
     sessionStorage.removeItem("hintgame.session");
     navigate("/login", { replace: true });
   }

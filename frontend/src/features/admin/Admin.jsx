@@ -1,8 +1,8 @@
 // frontend/src/features/admin/Admin.jsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { serverUrl } from "../../app/api-config";
 
-const serverUrl = (import.meta.env.VITE_SERVER_URL || "http://localhost:3000").replace(/\/$/, "");
 const MIN_MEMBERS = 2;
 const MAX_MEMBERS = 5;
 const GROUPS = ["A", "B", "C", "D"];
@@ -77,6 +77,7 @@ export default function Admin() {
   const [authed, setAuthed] = useState(false);
   const [teams, setTeams] = useState([]);
   const [levelDocs, setLevelDocs] = useState([]);
+  const [setStatuses, setSetStatuses] = useState([]);
   const [selectedSet, setSelectedSet] = useState("A");
   const [setDrafts, setSetDrafts] = useState([]);
   const [levelMessage, setLevelMessage] = useState("");
@@ -111,6 +112,7 @@ export default function Admin() {
       if (includeLevels) {
         const levelData = await api("/api/admin/levels");
         setLevelDocs(levelData.levels);
+        setSetStatuses(levelData.setStatuses);
       }
       setAuthed(true);
       setError("");
@@ -136,6 +138,7 @@ export default function Admin() {
     setLevelMessage("");
   }, [levelDocs, selectedSet]);
 
+  const selectedSetStatus = setStatuses.find((status) => status.group === selectedSet);
   const selectedSetFinalized = [1, 2, 3, 4].every((number) =>
     levelDocs.find((level) => level.number === number)?.groups?.[selectedSet]?.finalized === true
   );
@@ -174,6 +177,8 @@ export default function Admin() {
         levels,
       });
       setLevelDocs(saved.levels);
+      const status = await api("/api/admin/levels");
+      setSetStatuses(status.setStatuses);
       setLevelSaveFailed(false);
       setLevelMessage(saved.message);
     } catch (saveError) {
@@ -194,6 +199,7 @@ export default function Admin() {
       });
       const levelData = await api("/api/admin/levels");
       setLevelDocs(levelData.levels);
+      setSetStatuses(levelData.setStatuses);
       setLevelSaveFailed(false);
       setLevelMessage(result.message);
     } catch (statusError) {
@@ -215,7 +221,7 @@ export default function Admin() {
     try {
       await api("/api/admin/add-team", newTeam);
       setNewTeam({ teamName: "", teamCode: "", password: "", group: "A", members: ["", ""] });
-      load();
+      load(true);
     } catch (e) {
       alert(e.message);
     }
@@ -232,11 +238,11 @@ export default function Admin() {
 
   async function handleDeleteTeam(id, name) {
     if (!confirm(`Delete team "${name}"? This cannot be undone.`)) return;
-    try { await api("/api/admin/delete-team", { teamId: id }); load(); }
+    try { await api("/api/admin/delete-team", { teamId: id }); load(true); }
     catch (e) { alert(e.message); }
   }
   async function handleUpdateTeam(id, patch) {
-    try { await api("/api/admin/update-team", { teamId: id, ...patch }); load(); }
+    try { await api("/api/admin/update-team", { teamId: id, ...patch }); load(Boolean(patch.group)); }
     catch (e) { alert(e.message); }
   }
   async function handleResetPassword(id, name) {
@@ -308,6 +314,21 @@ export default function Admin() {
         <p className="panel-copy">
           Enter all four levels for one set, save them together, then finalize the set to make it playable.
         </p>
+        <div className="team-admin-list" aria-label="Question set readiness">
+          {GROUPS.map((group) => {
+            const status = setStatuses.find((item) => item.group === group);
+            return (
+              <div className="team-admin-card" key={group}>
+                <strong>Set {group}</strong>
+                <span>{status?.ready ? "Ready — finalized" : "Needs setup"}</span>
+                <span>{status?.assignedTeams ?? 0} assigned teams</span>
+                {!status?.ready && status?.missingLevels?.length > 0 && (
+                  <span>Levels to complete: {status.missingLevels.join(", ")}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
         <div className="admin-form">
           <label htmlFor="question-set">Question set</label>
           <select
@@ -323,7 +344,11 @@ export default function Admin() {
             ))}
           </select>
           <p className="panel-copy">
-            Status: <strong>{selectedSetFinalized ? "Finalized (locked)" : "Draft (not playable yet)"}</strong>
+            Status: <strong>
+              {selectedSetStatus?.ready
+                ? "Ready for gameplay (finalized and locked)"
+                : `Not ready — complete Levels ${selectedSetStatus?.missingLevels?.join(", ") || "1–4"}`}
+            </strong>
           </p>
           <form onSubmit={handleSaveQuestionSet}>
             {setDrafts.map((draft) => (

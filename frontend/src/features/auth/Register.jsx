@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-
-const serverUrl = (
-  import.meta.env.VITE_SERVER_URL || "http://localhost:3000"
-).replace(/\/$/, "");
+import { serverUrl } from "../../app/api-config";
 
 function Register() {
   const [teamName, setTeamName] = useState("");

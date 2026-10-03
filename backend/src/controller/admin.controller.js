@@ -1,14 +1,21 @@
 // backend/src/controller/admin.controller.js
 import Team from "../model/user.schema.js";
 import Level from "../model/level.schema.js";
+import { timingSafeEqual } from "node:crypto";
 
 const MIN_MEMBERS = 2;
 const MAX_MEMBERS = 5;
 const GROUPS = ["A", "B", "C", "D"];
 
 function checkKey(req, res) {
-  const key = req.headers["x-admin-key"] || req.body?.adminKey;
-  if (key !== process.env.ADMIN_KEY) {
+  const configuredKey = process.env.ADMIN_KEY;
+  const suppliedKey = req.headers["x-admin-key"];
+  const validKey = typeof configuredKey === "string"
+    && configuredKey.length > 0
+    && typeof suppliedKey === "string"
+    && Buffer.byteLength(configuredKey) === Buffer.byteLength(suppliedKey)
+    && timingSafeEqual(Buffer.from(configuredKey), Buffer.from(suppliedKey));
+  if (!validKey) {
     res.status(401).json({ message: "Invalid admin key." });
     return false;
   }
@@ -133,6 +140,8 @@ export async function resetPassword(req, res) {
     if (!team) return res.status(404).json({ message: "Team not found." });
 
     team.password = newPassword;
+    team.activeSessionId = null;
+    team.activeSessionExpiresAt = null;
     await team.save();
     return res.json({ message: "Password reset successfully." });
   } catch (e) {
@@ -230,97 +239,137 @@ export async function resetLock(req, res) {
 export async function getLevels(req, res) {
   if (!checkKey(req, res)) return;
   try {
-  const levels = await Level.find({ number: { $gte: 1, $lte: 4 } })
-    .sort({ number: 1 })
-    .lean();
-  return res.json({ levels });
+    const levels = await Level.find({ number: { $gte: 1, $lte: 4 } })
+      .sort({ number: 1 })
+      .lean();
+    const setStatuses = await Promise.all(GROUPS.map(async (group) => {
+      const missingLevels = [];
+      const codes = [];
+      for (let number = 1; number <= 4; number += 1) {
+        const level = levels.find((item) => item.number === number);
+        const set = level?.groups?.[group];
+        const mcq = set?.mcq;
+        if (
+          !set?.finalized ||
+          typeof set?.clue !== "string" ||
+          !set.clue.trim() ||
+          typeof set?.secretCode !== "string" ||
+          !set.secretCode.trim() ||
+          typeof mcq?.question !== "string" ||
+          !mcq.question.trim() ||
+          !Array.isArray(mcq.options) ||
+          mcq.options.length < 2 ||
+          mcq.options.length > 4 ||
+          mcq.options.some((option) => typeof option !== "string" || !option.trim()) ||
+          !Number.isInteger(mcq.correctIndex) ||
+          mcq.correctIndex < 0 ||
+          mcq.correctIndex >= mcq.options.length
+        ) {
+          missingLevels.push(number);
+        } else {
+          codes.push(set.secretCode.trim().toUpperCase());
+        }
+      }
+      if (new Set(codes).size !== codes.length) {
+        for (let number = 1; number <= 4; number += 1) {
+          if (!missingLevels.includes(number)) missingLevels.push(number);
+        }
+      }
+      return {
+        group,
+        ready: missingLevels.length === 0,
+        missingLevels,
+        assignedTeams: await Team.countDocuments({ group }),
+      };
+    }));
+    return res.json({ levels, setStatuses });
   } catch (e) {
-  console.error(e);
-  return res.status(500).json({ message: "Could not load level question sets." });
+    console.error(e);
+    return res.status(500).json({ message: "Could not load level question sets." });
   }
 }
 
 export async function saveQuestionSet(req, res) {
   if (!checkKey(req, res)) return;
   try {
-  const { group, levels } = req.body ?? {};
-  if (!GROUPS.includes(group))
-    return res.status(400).json({ message: "Set must be A, B, C, or D." });
-  if (!Array.isArray(levels) || levels.length !== 4)
-    return res.status(400).json({ message: "Exactly four levels are required." });
+    const { group, levels } = req.body ?? {};
+    if (!GROUPS.includes(group))
+      return res.status(400).json({ message: "Set must be A, B, C, or D." });
+    if (!Array.isArray(levels) || levels.length !== 4)
+      return res.status(400).json({ message: "Exactly four levels are required." });
 
-  const orderedLevels = [...levels].sort((a, b) => a?.number - b?.number);
-  const normalizedLevels = [];
-  for (let index = 0; index < orderedLevels.length; index += 1) {
-    const level = orderedLevels[index];
-    if (
-      !level ||
-      level.number !== index + 1 ||
-      typeof level.title !== "string" ||
-      !level.title.trim() ||
-      typeof level.question !== "string" ||
-      !level.question.trim() ||
-      !Array.isArray(level.options) ||
-      level.options.length < 2 ||
-      level.options.length > 4 ||
-      level.options.some((option) => typeof option !== "string" || !option.trim()) ||
-      !Number.isInteger(level.correctIndex) ||
-      level.correctIndex < 0 ||
-      level.correctIndex >= level.options.length ||
-      typeof level.clue !== "string" ||
-      !level.clue.trim() ||
-      typeof level.secretCode !== "string" ||
-      !level.secretCode.trim()
-    ) {
-      return res.status(400).json({
-        message: `Level ${index + 1} needs a title, question, 2-4 options, a correct answer, clue, and code.`,
+    const orderedLevels = [...levels].sort((a, b) => a?.number - b?.number);
+    const normalizedLevels = [];
+    for (let index = 0; index < orderedLevels.length; index += 1) {
+      const level = orderedLevels[index];
+      if (
+        !level ||
+        level.number !== index + 1 ||
+        typeof level.title !== "string" ||
+        !level.title.trim() ||
+        typeof level.question !== "string" ||
+        !level.question.trim() ||
+        !Array.isArray(level.options) ||
+        level.options.length < 2 ||
+        level.options.length > 4 ||
+        level.options.some((option) => typeof option !== "string" || !option.trim()) ||
+        !Number.isInteger(level.correctIndex) ||
+        level.correctIndex < 0 ||
+        level.correctIndex >= level.options.length ||
+        typeof level.clue !== "string" ||
+        !level.clue.trim() ||
+        typeof level.secretCode !== "string" ||
+        !level.secretCode.trim()
+      ) {
+        return res.status(400).json({
+          message: `Level ${index + 1} needs a title, question, 2-4 options, a correct answer, clue, and code.`,
+        });
+      }
+      normalizedLevels.push({
+        number: level.number,
+        title: level.title.trim(),
+        mcq: {
+          question: level.question.trim(),
+          options: level.options.map((option) => option.trim()),
+          correctIndex: level.correctIndex,
+        },
+        clue: level.clue.trim(),
+        secretCode: level.secretCode.trim().toUpperCase(),
       });
     }
-    normalizedLevels.push({
-      number: level.number,
-      title: level.title.trim(),
-      mcq: {
-        question: level.question.trim(),
-        options: level.options.map((option) => option.trim()),
-        correctIndex: level.correctIndex,
-      },
-      clue: level.clue.trim(),
-      secretCode: level.secretCode.trim().toUpperCase(),
-    });
-  }
 
-  const codes = normalizedLevels.map((level) => level.secretCode);
-  if (new Set(codes).size !== codes.length)
-    return res.status(400).json({ message: "Each level in a set must have a different unlock code." });
+    const codes = normalizedLevels.map((level) => level.secretCode);
+    if (new Set(codes).size !== codes.length)
+      return res.status(400).json({ message: "Each level in a set must have a different unlock code." });
 
-  const existingLevels = await Level.find({ number: { $gte: 1, $lte: 4 } });
-  if (existingLevels.some((level) => level.groups?.[group]?.finalized))
-    return res.status(409).json({
-      message: `Set ${group} is finalized. Reopen it before changing its questions.`,
-    });
+    const existingLevels = await Level.find({ number: { $gte: 1, $lte: 4 } });
+    if (existingLevels.some((level) => level.groups?.[group]?.finalized))
+      return res.status(409).json({
+        message: `Set ${group} is finalized. Reopen it before changing its questions.`,
+      });
 
-  for (const data of normalizedLevels) {
-    const level = existingLevels.find((item) => item.number === data.number)
-      || new Level({ number: data.number, title: data.title, mcq: data.mcq });
-    level.title = data.title;
-    level.groups[group] = {
-      mcq: data.mcq,
-      clue: data.clue,
-      secretCode: data.secretCode,
-      finalized: false,
-    };
-    await level.save();
-  }
+    for (const data of normalizedLevels) {
+      const level = existingLevels.find((item) => item.number === data.number)
+        || new Level({ number: data.number, title: data.title, mcq: data.mcq });
+      level.title = data.title;
+      level.groups[group] = {
+        mcq: data.mcq,
+        clue: data.clue,
+        secretCode: data.secretCode,
+        finalized: false,
+      };
+      await level.save();
+    }
 
-  const savedLevels = await Level.find({ number: { $gte: 1, $lte: 4 } })
-    .sort({ number: 1 })
-    .lean();
-  return res.json({ message: `All four levels for Set ${group} saved as a draft.`, levels: savedLevels });
+    const savedLevels = await Level.find({ number: { $gte: 1, $lte: 4 } })
+      .sort({ number: 1 })
+      .lean();
+    return res.json({ message: `All four levels for Set ${group} saved as a draft.`, levels: savedLevels });
   } catch (e) {
-  if (e.name === "ValidationError")
-    return res.status(400).json({ message: e.message });
-  console.error(e);
-  return res.status(500).json({ message: "Could not save level question set." });
+    if (e.name === "ValidationError")
+      return res.status(400).json({ message: e.message });
+    console.error(e);
+    return res.status(500).json({ message: "Could not save level question set." });
   }
 }
 
@@ -341,8 +390,10 @@ export async function setQuestionSetFinalized(req, res) {
         const set = level.groups?.[group];
         const mcq = set?.mcq?.question ? set.mcq : null;
         if (
-          !set?.clue ||
-          !set?.secretCode ||
+          typeof set?.clue !== "string" ||
+          !set.clue.trim() ||
+          typeof set?.secretCode !== "string" ||
+          !set.secretCode.trim() ||
           !mcq?.question ||
           !Array.isArray(mcq.options) ||
           mcq.options.length < 2 ||

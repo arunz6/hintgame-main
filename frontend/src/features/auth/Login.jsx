@@ -1,11 +1,9 @@
 // frontend/src/features/auth/Login.jsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { serverUrl } from "../../app/api-config";
 
 const SESSION_KEY = "hintgame.session";
-const serverUrl = (
-  import.meta.env.VITE_SERVER_URL || "http://localhost:3000"
-).replace(/\/$/, "");
 
 function readSession() {
   try {

@@ -42,11 +42,9 @@ function groupIsConfigured(level, group) {
 /* ---------- GET LEVELS ---------- */
 export async function getLevels(req, res) {
   try {
-    const { teamId } = req.params;
-    const team = await Team.findById(teamId);
-    if (!team) return res.status(404).json({ message: "Team not found." });
+    const team = req.team;
 
-    const levels = await Level.find().sort({ number: 1 });
+    const levels = await Level.find({ number: { $gte: 1, $lte: 4 } }).sort({ number: 1 });
     const safe = levels.map((lv) => ({
       number: lv.number,
       title: lv.title,
@@ -80,9 +78,7 @@ export async function getLevels(req, res) {
 /* ---------- REFRESH PENALTY ---------- */
 export async function applyRefreshPenalty(req, res) {
   try {
-    const { teamId } = req.body;
-    const team = await Team.findById(teamId);
-    if (!team) return res.status(404).json({ message: "Team not found." });
+    const team = req.team;
 
     const now = new Date();
     if (team.lockUntil && team.lockUntil > now) {
@@ -110,10 +106,7 @@ export async function applyRefreshPenalty(req, res) {
 export async function getLevelDetail(req, res) {
   try {
     const { number } = req.params;
-    const { teamId } = req.query;
-
-    const team = await Team.findById(teamId);
-    if (!team) return res.status(404).json({ message: "Team not found." });
+    const team = req.team;
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
 
@@ -150,11 +143,12 @@ export async function getLevelDetail(req, res) {
 /* ---------- SUBMIT ANSWER ---------- */
 export async function submitAnswer(req, res) {
   try {
-    const { teamId, level, answerIndex } = req.body;
-    const team = await Team.findById(teamId);
-    if (!team) return res.status(404).json({ message: "Team not found." });
+    const { level, answerIndex } = req.body;
+    const team = req.team;
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
+    if (!Number.isInteger(level) || level > team.currentLevel || level < 1)
+      return res.status(403).json({ message: "Level is locked." });
 
     if (team.lockUntil && team.lockUntil > new Date())
       return res.status(423).json({
@@ -207,11 +201,12 @@ export async function submitAnswer(req, res) {
 /* ---------- SUBMIT CODE ---------- */
 export async function submitCode(req, res) {
   try {
-    const { teamId, level, code } = req.body;
-    const team = await Team.findById(teamId);
-    if (!team) return res.status(404).json({ message: "Team not found." });
+    const { level, code } = req.body;
+    const team = req.team;
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
+    if (!Number.isInteger(level) || level > team.currentLevel || level < 1)
+      return res.status(403).json({ message: "Level is locked." });
 
     const lv = await Level.findOne({ number: level });
     if (!lv) return res.status(404).json({ message: "Level not found." });

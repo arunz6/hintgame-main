@@ -8,14 +8,15 @@ import {
   getLeaderboard,
   applyRefreshPenalty,
 } from "../controller/game.controller.js";
+import { requireTeamSession } from "../middleware/team-session.middleware.js";
 
 const router = Router();
 
-router.get("/levels/:teamId", getLevels);
-router.get("/level/:number", getLevelDetail);
-router.post("/answer", submitAnswer);
-router.post("/unlock", submitCode);
-router.post("/refresh", applyRefreshPenalty);
 router.get("/leaderboard", getLeaderboard);
+router.get("/levels/:teamId", requireTeamSession, getLevels);
+router.get("/level/:number", requireTeamSession, getLevelDetail);
+router.post("/answer", requireTeamSession, submitAnswer);
+router.post("/unlock", requireTeamSession, submitCode);
+router.post("/refresh", requireTeamSession, applyRefreshPenalty);
 
 export default router;
