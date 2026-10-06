@@ -1,6 +1,6 @@
 // frontend/src/features/auth/Login.jsx
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { serverUrl } from "../../app/api-config";
 
 const SESSION_KEY = "hintgame.session";
@@ -128,7 +128,7 @@ function Login() {
           <span aria-hidden="true">●</span> Your team progress stays together
         </p>
         <p className="auth-switch">
-          Need a team? <Link to="/register">Create one</Link>
+          Team access is available only to invited teams.
         </p>
       </section>
     </main>
