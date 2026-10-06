@@ -78,6 +78,9 @@ export default function Admin() {
   const [teams, setTeams] = useState([]);
   const [levelDocs, setLevelDocs] = useState([]);
   const [setStatuses, setSetStatuses] = useState([]);
+  const [hunt, setHunt] = useState({ status: "setup", startedAt: null });
+  const [readinessProblems, setReadinessProblems] = useState([]);
+  const [startingHunt, setStartingHunt] = useState(false);
   const [selectedSet, setSelectedSet] = useState("A");
   const [setDrafts, setSetDrafts] = useState([]);
   const [levelMessage, setLevelMessage] = useState("");
@@ -95,13 +98,21 @@ export default function Admin() {
   });
 
   async function api(path, body) {
-    const res = await fetch(`${serverUrl}${path}`, {
-      method: body ? "POST" : "GET",
-      headers: { "Content-Type": "application/json", "x-admin-key": key },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    let res;
+    try {
+      res = await fetch(`${serverUrl}${path}`, {
+        method: body ? "POST" : "GET",
+        headers: { "Content-Type": "application/json", "x-admin-key": key },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (requestError) {
+      if (requestError instanceof TypeError) {
+        throw new Error(`Cannot reach the backend at ${serverUrl}. Check that it is running and connected to MongoDB.`);
+      }
+      throw requestError;
+    }
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json.message || "Request failed");
+    if (!res.ok) throw new Error(json.message || `Request failed (${res.status}).`);
     return json;
   }
 
@@ -109,6 +120,8 @@ export default function Admin() {
     try {
       const overview = await api("/api/admin/overview");
       setTeams(overview.teams);
+      setHunt(overview.hunt || { status: "setup", startedAt: null });
+      setReadinessProblems(overview.readinessProblems || []);
       if (includeLevels) {
         const levelData = await api("/api/admin/levels");
         setLevelDocs(levelData.levels);
@@ -207,6 +220,20 @@ export default function Admin() {
       setLevelMessage(statusError.message);
     } finally {
       setFinalizingSet(false);
+    }
+  }
+
+  async function handleStartHunt() {
+    if (!confirm("Start the hunt now? Teams will be able to play. This cannot be undone.")) return;
+    setStartingHunt(true);
+    try {
+      const result = await api("/api/admin/start-hunt", {});
+      await load(true);
+      alert(result.message);
+    } catch (startError) {
+      alert(startError.message);
+    } finally {
+      setStartingHunt(false);
     }
   }
 
@@ -310,6 +337,35 @@ export default function Admin() {
       </header>
 
       <section className="level-card-large">
+        <h2>Hunt control</h2>
+        {hunt.status === "running" ? (
+          <p className="panel-copy">
+            Hunt started {hunt.startedAt ? new Date(hunt.startedAt).toLocaleString() : ""}.
+          </p>
+        ) : (
+          <>
+            <p className="panel-copy">
+              Complete and finalize all four levels for every group assigned to a team before starting.
+            </p>
+            {readinessProblems.length > 0 && (
+              <ul role="status">
+                {readinessProblems.map((problem) => <li key={problem}>{problem}</li>)}
+              </ul>
+            )}
+            <button
+              className="submit-button"
+              type="button"
+              onClick={handleStartHunt}
+              disabled={startingHunt || readinessProblems.length > 0}
+            >
+              {startingHunt ? "Starting hunt..." : "Start Hunt"}
+              <span>→</span>
+            </button>
+          </>
+        )}
+      </section>
+
+      <section className="level-card-large">
         <h2>Manage all questions for a set</h2>
         <p className="panel-copy">
           Enter all four levels for one set, save them together, then finalize the set to make it playable.
@@ -352,7 +408,7 @@ export default function Admin() {
           </p>
           <form onSubmit={handleSaveQuestionSet}>
             {setDrafts.map((draft) => (
-              <fieldset className="level-card-large" key={draft.number} disabled={selectedSetFinalized || savingLevel}>
+              <fieldset className="level-card-large" key={draft.number} disabled={hunt.status === "running" || selectedSetFinalized || savingLevel}>
                 <legend>Level {draft.number}</legend>
                 <label htmlFor={`question-${draft.number}`}>Question</label>
                 <textarea
@@ -408,7 +464,7 @@ export default function Admin() {
                 {levelMessage}
               </p>
             )}
-            {!selectedSetFinalized && (
+            {!selectedSetFinalized && hunt.status !== "running" && (
               <button className="submit-button" type="submit" disabled={savingLevel || finalizingSet}>
                 {savingLevel ? "Saving all 4 levels..." : `Save all 4 levels in Set ${selectedSet}`}
                 <span>→</span>
@@ -419,7 +475,7 @@ export default function Admin() {
             className="submit-button"
             type="button"
             onClick={() => handleFinalizeSet(!selectedSetFinalized)}
-            disabled={savingLevel || finalizingSet}
+            disabled={hunt.status === "running" || savingLevel || finalizingSet}
           >
             {finalizingSet
               ? "Updating set..."
@@ -451,7 +507,7 @@ export default function Admin() {
             </div>
             <div>
               <label>Password (min 6 chars)</label>
-              <input type="text" value={newTeam.password} onChange={(e) => setNewTeam({ ...newTeam, password: e.target.value })} required />
+              <input type="password" autoComplete="new-password" value={newTeam.password} onChange={(e) => setNewTeam({ ...newTeam, password: e.target.value })} required />
             </div>
           </div>
 
@@ -485,7 +541,7 @@ export default function Admin() {
             )}
           </div>
 
-          <button className="submit-button" type="submit" style={{ marginTop: 14 }}>
+          <button className="submit-button" type="submit" style={{ marginTop: 14 }} disabled={hunt.status === "running"}>
             Create team <span>+</span>
           </button>
         </form>
@@ -528,7 +584,7 @@ export default function Admin() {
                     </button>
                     <button className="text-button" onClick={() => handleResetLock(t.id)}>Unlock</button>
                     <button className="text-button danger" onClick={() => handleDisqualify(t.id, t.teamName)}>Disqualify</button>
-                    <button className="text-button danger" onClick={() => handleDeleteTeam(t.id, t.teamName)}>Delete</button>
+                    <button className="text-button danger" onClick={() => handleDeleteTeam(t.id, t.teamName)} disabled={hunt.status === "running"}>Delete</button>
                   </div>
                 </div>
 

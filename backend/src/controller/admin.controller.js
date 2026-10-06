@@ -1,11 +1,43 @@
 // backend/src/controller/admin.controller.js
 import Team from "../model/user.schema.js";
 import Level from "../model/level.schema.js";
+import Hunt from "../model/hunt.schema.js";
+import mongoose from "mongoose";
 import { timingSafeEqual } from "node:crypto";
 
 const MIN_MEMBERS = 2;
 const MAX_MEMBERS = 5;
 const GROUPS = ["A", "B", "C", "D"];
+
+function getHuntReadinessProblems(teams, levels) {
+  const problems = [];
+  if (teams.length < 2) problems.push("At least 2 teams are required.");
+
+  const groups = [...new Set(teams.map((team) => team.group))];
+  for (const group of groups) {
+    for (let number = 1; number <= 4; number += 1) {
+      const level = levels.find((item) => item.number === number);
+      const set = level?.groups?.[group];
+      const mcq = set?.mcq;
+      if (
+        !set?.finalized ||
+        !set.clue?.trim() ||
+        !set.secretCode?.trim() ||
+        !mcq?.question?.trim() ||
+        !Array.isArray(mcq.options) ||
+        mcq.options.length < 2 ||
+        mcq.options.length > 4 ||
+        mcq.options.some((option) => !option?.trim()) ||
+        !Number.isInteger(mcq.correctIndex) ||
+        mcq.correctIndex < 0 ||
+        mcq.correctIndex >= mcq.options.length
+      ) {
+        problems.push(`Set ${group}, Level ${number} is incomplete or not finalized.`);
+      }
+    }
+  }
+  return problems;
+}
 
 function checkKey(req, res) {
   const configuredKey = process.env.ADMIN_KEY;
@@ -27,6 +59,10 @@ export async function overview(req, res) {
   if (!checkKey(req, res)) return;
   try {
     const teams = await Team.find().sort({ currentLevel: -1, startedAt: 1 });
+    const [hunt, levels] = await Promise.all([
+      Hunt.findById("main").lean(),
+      Level.find({ number: { $gte: 1, $lte: 4 } }).lean(),
+    ]);
     const now = new Date();
     const data = teams.map((t) => ({
       id: t._id,
@@ -42,7 +78,13 @@ export async function overview(req, res) {
       wrongAttempts: t.wrongAttempts,
       createdAt: t.createdAt,
     }));
-    return res.json({ teams: data, maxMembers: MAX_MEMBERS });
+    const activeTeams = teams.filter((team) => team.status !== "disqualified");
+    return res.json({
+      teams: data,
+      maxMembers: MAX_MEMBERS,
+      hunt: hunt || { status: "setup", startedAt: null },
+      readinessProblems: getHuntReadinessProblems(activeTeams, levels),
+    });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ message: "Could not load overview." });
@@ -423,5 +465,69 @@ export async function setQuestionSetFinalized(req, res) {
   } catch (e) {
     console.error(e);
     return res.status(500).json({ message: "Could not update set status." });
+  }
+}
+
+export async function startHunt(req, res) {
+  if (!checkKey(req, res)) return;
+  let session;
+  try {
+    const db = mongoose.connection.db;
+    if (!db) throw new Error("MongoDB connection is not ready.");
+    const huntCollectionExists = await db.listCollections(
+      { name: Hunt.collection.name },
+      { nameOnly: true },
+    ).hasNext();
+    if (!huntCollectionExists) await Hunt.createCollection();
+
+    session = await mongoose.startSession();
+    let startedAt;
+    await session.withTransaction(async () => {
+      const currentHunt = await Hunt.findById("main").session(session);
+      if (currentHunt?.status === "running") {
+        const error = new Error("The hunt has already started.");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const teams = await Team.find().session(session);
+      const levels = await Level.find({ number: { $gte: 1, $lte: 4 } }).session(session);
+      const problems = getHuntReadinessProblems(teams, levels);
+      if (problems.length) {
+        const error = new Error(problems.join(" "));
+        error.statusCode = 400;
+        throw error;
+      }
+
+      startedAt = new Date();
+      await Team.updateMany(
+        { status: "not_started" },
+        {
+          $set: {
+            status: "playing",
+            startedAt,
+          },
+        },
+        { session },
+      );
+
+      const hunt = currentHunt || new Hunt({ _id: "main" });
+      hunt.status = "running";
+      hunt.startedAt = startedAt;
+      await hunt.save({ session });
+    });
+
+    return res.json({
+      message: "The hunt has started.",
+      hunt: { status: "running", startedAt },
+    });
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
+    if (error.code === 112 || error.code === 251)
+      return res.status(409).json({ message: "The hunt is starting. Refresh the admin panel and check its status." });
+    console.error("Could not start hunt:", error);
+    return res.status(500).json({ message: "Could not start the hunt. Check the backend logs for details." });
+  } finally {
+    if (session) await session.endSession();
   }
 }

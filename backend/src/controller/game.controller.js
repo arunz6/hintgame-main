@@ -1,6 +1,7 @@
 // backend/src/controller/game.controller.js
 import Team from "../model/user.schema.js";
 import Level from "../model/level.schema.js";
+import Hunt from "../model/hunt.schema.js";
 
 const LOCK_MINUTES = 30;
 const REFRESH_LOCK_MINUTES = 35;
@@ -107,6 +108,9 @@ export async function getLevelDetail(req, res) {
   try {
     const { number } = req.params;
     const team = req.team;
+    const hunt = await Hunt.findById("main").lean();
+    if (hunt?.status !== "running")
+      return res.status(403).json({ message: "The hunt has not started yet.", huntNotStarted: true });
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
 
@@ -145,6 +149,9 @@ export async function submitAnswer(req, res) {
   try {
     const { level, answerIndex } = req.body;
     const team = req.team;
+    const hunt = await Hunt.findById("main").lean();
+    if (hunt?.status !== "running")
+      return res.status(403).json({ message: "The hunt has not started yet.", huntNotStarted: true });
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
     if (!Number.isInteger(level) || level > team.currentLevel || level < 1)
@@ -203,6 +210,9 @@ export async function submitCode(req, res) {
   try {
     const { level, code } = req.body;
     const team = req.team;
+    const hunt = await Hunt.findById("main").lean();
+    if (hunt?.status !== "running")
+      return res.status(403).json({ message: "The hunt has not started yet.", huntNotStarted: true });
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
     if (!Number.isInteger(level) || level > team.currentLevel || level < 1)
