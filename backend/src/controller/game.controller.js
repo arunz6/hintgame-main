@@ -1,7 +1,7 @@
 // backend/src/controller/game.controller.js
 import Team from "../model/user.schema.js";
 import Level from "../model/level.schema.js";
-import Hunt from "../model/hunt.schema.js";
+import { getHuntState } from "../utils/hunt-state.js";
 
 const LOCK_MINUTES = 30;
 const REFRESH_LOCK_MINUTES = 35;
@@ -44,6 +44,7 @@ function groupIsConfigured(level, group) {
 export async function getLevels(req, res) {
   try {
     const team = req.team;
+    const hunt = await getHuntState();
 
     const levels = await Level.find({ number: { $gte: 1, $lte: 4 } }).sort({ number: 1 });
     const safe = levels.map((lv) => ({
@@ -69,6 +70,12 @@ export async function getLevels(req, res) {
       team: publicTeam(team),
       levels: safe,
       warning,
+      hunt: {
+        status: hunt.status,
+        startsAt: hunt.startsAt,
+        startedAt: hunt.startedAt,
+        endedAt: hunt.endedAt,
+      },
     });
   } catch (e) {
     console.error(e);
@@ -108,9 +115,15 @@ export async function getLevelDetail(req, res) {
   try {
     const { number } = req.params;
     const team = req.team;
-    const hunt = await Hunt.findById("main").lean();
+    const hunt = await getHuntState();
     if (hunt?.status !== "running")
-      return res.status(403).json({ message: "The hunt has not started yet.", huntNotStarted: true });
+      return res.status(403).json({
+        message: hunt?.status === "ended"
+          ? "The game has ended. Gameplay is no longer available."
+          : "The hunt has not started yet.",
+        huntNotStarted: true,
+        hunt: { status: hunt.status, startsAt: hunt.startsAt, endedAt: hunt.endedAt },
+      });
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
 
@@ -149,9 +162,15 @@ export async function submitAnswer(req, res) {
   try {
     const { level, answerIndex } = req.body;
     const team = req.team;
-    const hunt = await Hunt.findById("main").lean();
+    const hunt = await getHuntState();
     if (hunt?.status !== "running")
-      return res.status(403).json({ message: "The hunt has not started yet.", huntNotStarted: true });
+      return res.status(403).json({
+        message: hunt?.status === "ended"
+          ? "The game has ended. Gameplay is no longer available."
+          : "The hunt has not started yet.",
+        huntNotStarted: true,
+        hunt: { status: hunt.status, startsAt: hunt.startsAt, endedAt: hunt.endedAt },
+      });
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
     if (!Number.isInteger(level) || level > team.currentLevel || level < 1)
@@ -210,9 +229,15 @@ export async function submitCode(req, res) {
   try {
     const { level, code } = req.body;
     const team = req.team;
-    const hunt = await Hunt.findById("main").lean();
+    const hunt = await getHuntState();
     if (hunt?.status !== "running")
-      return res.status(403).json({ message: "The hunt has not started yet.", huntNotStarted: true });
+      return res.status(403).json({
+        message: hunt?.status === "ended"
+          ? "The game has ended. Gameplay is no longer available."
+          : "The hunt has not started yet.",
+        huntNotStarted: true,
+        hunt: { status: hunt.status, startsAt: hunt.startsAt, endedAt: hunt.endedAt },
+      });
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
     if (!Number.isInteger(level) || level > team.currentLevel || level < 1)
@@ -285,6 +310,7 @@ async function maybeEliminate(completedLevel) {
 /* ---------- LEADERBOARD ---------- */
 export async function getLeaderboard(req, res) {
   try {
+    const hunt = await getHuntState();
     const teams = await Team.find().sort({
       currentLevel: -1,
       finishedAt: 1,
@@ -316,7 +342,7 @@ export async function getLeaderboard(req, res) {
       locked: ranked.filter((t) => t.lockedNow).length,
     };
 
-    return res.json({ teams: ranked, summary });
+    return res.json({ teams: ranked, summary, hunt });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ message: "Could not load leaderboard." });

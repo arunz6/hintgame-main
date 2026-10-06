@@ -22,16 +22,27 @@ const startServer = async () => {
     throw new Error("PORT must be a valid TCP port number.");
   }
 
-  await mongoose.connect(process.env.MONGODB_URI, {
-    dbName: process.env.MONGODB_DB || "hintgame",
-  });
-
   const httpServer = createServer(app);
   initSocket(httpServer);
 
-  httpServer.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
+  await new Promise((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(port, resolve);
   });
+  console.log(`Server listening on port ${port}`);
+
+  while (mongoose.connection.readyState !== 1) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI, {
+        dbName: process.env.MONGODB_DB || "hintgame",
+        serverSelectionTimeoutMS: 10000,
+      });
+      console.log("Connected to MongoDB.");
+    } catch (error) {
+      console.error("MongoDB connection failed; retrying in 5 seconds:", error.message);
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
 };
 
 startServer().catch((error) => {

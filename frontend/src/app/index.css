@@ -255,6 +255,15 @@ h1 {
 	background: #c7ff80;
 }
 
+.submit-button.danger {
+	background: #b84a3c;
+	color: #fff;
+}
+
+.submit-button.danger:hover:not(:disabled) {
+	background: #d45a4a;
+}
+
 .submit-button:disabled {
 	cursor: wait;
 	opacity: 0.72;

@@ -6,6 +6,7 @@ import { serverUrl } from "../../app/api-config";
 const MIN_MEMBERS = 2;
 const MAX_MEMBERS = 5;
 const GROUPS = ["A", "B", "C", "D"];
+const canEditSetup = (status) => status === "setup" || status === "ended";
 
 function EditableField({ label, value, onSave }) {
   const [draft, setDraft] = useState(value);
@@ -47,7 +48,7 @@ function EditableGroup({ value, onSave }) {
   );
 }
 
-function MemberRow({ teamId, member, onSave, onDelete }) {
+function MemberRow({ teamId, member, onSave, onDelete, canDelete }) {
   const [draft, setDraft] = useState(member.name);
   const changed = draft.trim() && draft !== member.name;
   useEffect(() => setDraft(member.name), [member.name]);
@@ -65,6 +66,8 @@ function MemberRow({ teamId, member, onSave, onDelete }) {
       <button
         className="text-button danger"
         onClick={() => onDelete(teamId, member.id, member.name)}
+        disabled={!canDelete}
+        title={canDelete ? "Remove member" : `A team must keep at least ${MIN_MEMBERS} members`}
       >
         ✕
       </button>
@@ -81,6 +84,7 @@ export default function Admin() {
   const [hunt, setHunt] = useState({ status: "setup", startedAt: null });
   const [readinessProblems, setReadinessProblems] = useState([]);
   const [startingHunt, setStartingHunt] = useState(false);
+  const [now, setNow] = useState(Date.now());
   const [selectedSet, setSelectedSet] = useState("A");
   const [setDrafts, setSetDrafts] = useState([]);
   const [levelMessage, setLevelMessage] = useState("");
@@ -101,9 +105,9 @@ export default function Admin() {
     let res;
     try {
       res = await fetch(`${serverUrl}${path}`, {
-        method: body ? "POST" : "GET",
+        method: body !== undefined ? "POST" : "GET",
         headers: { "Content-Type": "application/json", "x-admin-key": key },
-        body: body ? JSON.stringify(body) : undefined,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
       });
     } catch (requestError) {
       if (requestError instanceof TypeError) {
@@ -155,6 +159,7 @@ export default function Admin() {
   const selectedSetFinalized = [1, 2, 3, 4].every((number) =>
     levelDocs.find((level) => level.number === number)?.groups?.[selectedSet]?.finalized === true
   );
+  const setupEditable = canEditSetup(hunt.status);
 
   function updateLevelDraft(number, patch) {
     setSetDrafts((drafts) => drafts.map((draft) =>
@@ -192,6 +197,7 @@ export default function Admin() {
       setLevelDocs(saved.levels);
       const status = await api("/api/admin/levels");
       setSetStatuses(status.setStatuses);
+      await load();
       setLevelSaveFailed(false);
       setLevelMessage(saved.message);
     } catch (saveError) {
@@ -213,6 +219,7 @@ export default function Admin() {
       const levelData = await api("/api/admin/levels");
       setLevelDocs(levelData.levels);
       setSetStatuses(levelData.setStatuses);
+      await load();
       setLevelSaveFailed(false);
       setLevelMessage(result.message);
     } catch (statusError) {
@@ -224,12 +231,15 @@ export default function Admin() {
   }
 
   async function handleStartHunt() {
-    if (!confirm("Start the hunt now? Teams will be able to play. This cannot be undone.")) return;
+    const isNewGame = hunt.status === "ended";
+    const confirmation = isNewGame
+      ? "Start a new game now? All teams' game progress, levels, penalties, and ranks will be reset. Team accounts and questions will be kept."
+      : "Start the game now? Teams will be able to play immediately.";
+    if (!confirm(confirmation)) return;
     setStartingHunt(true);
     try {
-      const result = await api("/api/admin/start-hunt", {});
+      await api("/api/admin/start-hunt", {});
       await load(true);
-      alert(result.message);
     } catch (startError) {
       alert(startError.message);
     } finally {
@@ -237,18 +247,37 @@ export default function Admin() {
     }
   }
 
+  async function handleEndHunt() {
+    if (!confirm("End the game now? Gameplay will stop, team progress and results will be kept, and the game cannot be restarted.")) return;
+    setStartingHunt(true);
+    try {
+      await api("/api/admin/end-hunt", {});
+      await load(true);
+    } catch (endError) {
+      alert(endError.message);
+    } finally {
+      setStartingHunt(false);
+    }
+  }
+
   useEffect(() => {
     if (!authed) return;
-    const id = setInterval(() => load(), 5000);
+    const interval = hunt.status === "countdown" ? 1000 : 5000;
+    const id = setInterval(() => load(), interval);
     return () => clearInterval(id);
-  }, [authed, key]);
+  }, [authed, key, hunt.status]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   async function handleAddTeam(e) {
     e.preventDefault();
     try {
       await api("/api/admin/add-team", newTeam);
       setNewTeam({ teamName: "", teamCode: "", password: "", group: "A", members: ["", ""] });
-      load(true);
+      await load(true);
     } catch (e) {
       alert(e.message);
     }
@@ -265,11 +294,11 @@ export default function Admin() {
 
   async function handleDeleteTeam(id, name) {
     if (!confirm(`Delete team "${name}"? This cannot be undone.`)) return;
-    try { await api("/api/admin/delete-team", { teamId: id }); load(true); }
+    try { await api("/api/admin/delete-team", { teamId: id }); await load(true); }
     catch (e) { alert(e.message); }
   }
   async function handleUpdateTeam(id, patch) {
-    try { await api("/api/admin/update-team", { teamId: id, ...patch }); load(Boolean(patch.group)); }
+    try { await api("/api/admin/update-team", { teamId: id, ...patch }); await load(Boolean(patch.group)); }
     catch (e) { alert(e.message); }
   }
   async function handleResetPassword(id, name) {
@@ -279,29 +308,35 @@ export default function Admin() {
     try {
       await api("/api/admin/reset-password", { teamId: id, newPassword });
       alert(`✅ Password reset for "${name}".\n\nNew password: ${newPassword}`);
-      load();
+      await load();
     } catch (e) { alert(e.message); }
   }
   async function handleUpdateMember(teamId, memberId, name) {
-    try { await api("/api/admin/update-member", { teamId, memberId, name }); load(); }
+    try { await api("/api/admin/update-member", { teamId, memberId, name }); await load(); }
     catch (e) { alert(e.message); }
   }
   async function handleAddMember(teamId, name) {
-    try { await api("/api/admin/add-member", { teamId, name }); load(); }
-    catch (e) { alert(e.message); }
+    try {
+      await api("/api/admin/add-member", { teamId, name });
+      await load();
+      return true;
+    } catch (e) {
+      alert(e.message);
+      return false;
+    }
   }
   async function handleDeleteMember(teamId, memberId, name) {
     if (!confirm(`Remove member "${name}"?`)) return;
-    try { await api("/api/admin/delete-member", { teamId, memberId }); load(); }
+    try { await api("/api/admin/delete-member", { teamId, memberId }); await load(); }
     catch (e) { alert(e.message); }
   }
   async function handleDisqualify(id, name) {
     if (!confirm(`Disqualify "${name}"?`)) return;
-    try { await api("/api/admin/disqualify", { teamId: id }); load(); }
+    try { await api("/api/admin/disqualify", { teamId: id }); await load(); }
     catch (e) { alert(e.message); }
   }
   async function handleResetLock(id) {
-    try { await api("/api/admin/reset-lock", { teamId: id }); load(); }
+    try { await api("/api/admin/reset-lock", { teamId: id }); await load(); }
     catch (e) { alert(e.message); }
   }
 
@@ -331,17 +366,57 @@ export default function Admin() {
         <div>
           <p className="eyebrow">HINTGAME / ADMIN</p>
           <h1>Control Panel</h1>
-          <p className="panel-copy">{teams.length} teams · live updates every 5s</p>
+          <p className="panel-copy">{teams.length} teams · live updates</p>
         </div>
         <Link className="text-button" to="/leaderboard">View leaderboard →</Link>
       </header>
 
+      {error && <p className="login-error" role="alert">{error}</p>}
+
       <section className="level-card-large">
         <h2>Hunt control</h2>
         {hunt.status === "running" ? (
-          <p className="panel-copy">
-            Hunt started {hunt.startedAt ? new Date(hunt.startedAt).toLocaleString() : ""}.
-          </p>
+          <>
+            <p className="panel-copy">
+              Game is live{hunt.startedAt ? ` since ${new Date(hunt.startedAt).toLocaleString()}` : ""}.
+            </p>
+            <button className="submit-button danger" type="button" onClick={handleEndHunt} disabled={startingHunt}>
+              {startingHunt ? "Ending game..." : "End Game"}
+            </button>
+          </>
+        ) : hunt.status === "countdown" ? (
+          <>
+            <p className="panel-copy" aria-live="polite">
+              The game starts in{" "}
+              <strong>
+                {Math.max(0, Math.ceil((new Date(hunt.startsAt).getTime() - now) / 1000))} seconds
+              </strong>
+              . Give teams time to get ready.
+            </p>
+            <button className="submit-button danger" type="button" onClick={handleEndHunt} disabled={startingHunt}>
+              {startingHunt ? "Ending game..." : "End Game"}
+            </button>
+          </>
+        ) : hunt.status === "ended" ? (
+          <>
+            <p className="panel-copy" role="status">
+              Game ended{hunt.endedAt ? ` at ${new Date(hunt.endedAt).toLocaleString()}` : ""}. Team progress and results are preserved until you start a new game.
+            </p>
+            {readinessProblems.length > 0 && (
+              <ul role="status">
+                {readinessProblems.map((problem) => <li key={problem}>{problem}</li>)}
+              </ul>
+            )}
+            <button
+              className="submit-button"
+              type="button"
+              onClick={handleStartHunt}
+              disabled={startingHunt || readinessProblems.length > 0}
+            >
+              {startingHunt ? "Starting new game..." : "Start New Game"}
+              <span>→</span>
+            </button>
+          </>
         ) : (
           <>
             <p className="panel-copy">
@@ -358,7 +433,7 @@ export default function Admin() {
               onClick={handleStartHunt}
               disabled={startingHunt || readinessProblems.length > 0}
             >
-              {startingHunt ? "Starting hunt..." : "Start Hunt"}
+              {startingHunt ? "Starting game..." : "Start Game"}
               <span>→</span>
             </button>
           </>
@@ -408,7 +483,7 @@ export default function Admin() {
           </p>
           <form onSubmit={handleSaveQuestionSet}>
             {setDrafts.map((draft) => (
-              <fieldset className="level-card-large" key={draft.number} disabled={hunt.status === "running" || selectedSetFinalized || savingLevel}>
+              <fieldset className="level-card-large" key={draft.number} disabled={!setupEditable || selectedSetFinalized || savingLevel}>
                 <legend>Level {draft.number}</legend>
                 <label htmlFor={`question-${draft.number}`}>Question</label>
                 <textarea
@@ -464,7 +539,7 @@ export default function Admin() {
                 {levelMessage}
               </p>
             )}
-            {!selectedSetFinalized && hunt.status !== "running" && (
+            {!selectedSetFinalized && setupEditable && (
               <button className="submit-button" type="submit" disabled={savingLevel || finalizingSet}>
                 {savingLevel ? "Saving all 4 levels..." : `Save all 4 levels in Set ${selectedSet}`}
                 <span>→</span>
@@ -475,7 +550,7 @@ export default function Admin() {
             className="submit-button"
             type="button"
             onClick={() => handleFinalizeSet(!selectedSetFinalized)}
-            disabled={hunt.status === "running" || savingLevel || finalizingSet}
+            disabled={!setupEditable || savingLevel || finalizingSet}
           >
             {finalizingSet
               ? "Updating set..."
@@ -507,7 +582,7 @@ export default function Admin() {
             </div>
             <div>
               <label>Password (min 6 chars)</label>
-              <input type="password" autoComplete="new-password" value={newTeam.password} onChange={(e) => setNewTeam({ ...newTeam, password: e.target.value })} required />
+              <input type="password" autoComplete="new-password" minLength={6} value={newTeam.password} onChange={(e) => setNewTeam({ ...newTeam, password: e.target.value })} required />
             </div>
           </div>
 
@@ -541,7 +616,7 @@ export default function Admin() {
             )}
           </div>
 
-          <button className="submit-button" type="submit" style={{ marginTop: 14 }} disabled={hunt.status === "running"}>
+          <button className="submit-button" type="submit" style={{ marginTop: 14 }} disabled={!setupEditable}>
             Create team <span>+</span>
           </button>
         </form>
@@ -584,7 +659,7 @@ export default function Admin() {
                     </button>
                     <button className="text-button" onClick={() => handleResetLock(t.id)}>Unlock</button>
                     <button className="text-button danger" onClick={() => handleDisqualify(t.id, t.teamName)}>Disqualify</button>
-                    <button className="text-button danger" onClick={() => handleDeleteTeam(t.id, t.teamName)} disabled={hunt.status === "running"}>Delete</button>
+                    <button className="text-button danger" onClick={() => handleDeleteTeam(t.id, t.teamName)} disabled={!setupEditable}>Delete</button>
                   </div>
                 </div>
 
@@ -602,20 +677,27 @@ export default function Admin() {
                     <h3 className="admin-subhead">Members ({t.members.length}/5)</h3>
                     <div className="member-list">
                       {t.members.map((m) => (
-                        <MemberRow key={m.id} teamId={t.id} member={m} onSave={handleUpdateMember} onDelete={handleDeleteMember} />
+                        <MemberRow
+                          key={m.id}
+                          teamId={t.id}
+                          member={m}
+                          onSave={handleUpdateMember}
+                          onDelete={handleDeleteMember}
+                          canDelete={t.members.length > MIN_MEMBERS}
+                        />
                       ))}
                     </div>
 
                     {t.members.length < MAX_MEMBERS && (
                       <form
                         className="add-member-row"
-                        onSubmit={(e) => {
+                        onSubmit={async (e) => {
                           e.preventDefault();
                           const name = e.target.elements.memberName.value.trim();
-                          if (name) { handleAddMember(t.id, name); e.target.reset(); }
+                          if (name && await handleAddMember(t.id, name)) e.target.reset();
                         }}
                       >
-                        <input name="memberName" placeholder="New member name" />
+                        <input name="memberName" placeholder="New member name" required maxLength={80} />
                         <button className="text-button" type="submit">+ Add member ({t.members.length}/5)</button>
                       </form>
                     )}

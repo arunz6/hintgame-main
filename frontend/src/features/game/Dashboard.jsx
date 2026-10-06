@@ -10,6 +10,7 @@ export default function Dashboard({ team }) {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [sneaky, setSneaky] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const refreshCalled = useRef(false);
 
   const load = useCallback(async () => {
@@ -59,9 +60,19 @@ export default function Dashboard({ team }) {
 
   // Poll every 5s (no penalty)
   useEffect(() => {
-    const id = setInterval(load, 5000);
+    const interval = data?.hunt?.status === "running"
+      ? 5000
+      : data?.hunt?.status === "countdown"
+        ? 1000
+        : 2000;
+    const id = setInterval(load, interval);
     return () => clearInterval(id);
-  }, [load]);
+  }, [data?.hunt?.status, load]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   function handleLogout() {
     fetch(`${serverUrl}/api/teams/logout`, {
@@ -104,22 +115,50 @@ export default function Dashboard({ team }) {
       {sneaky && <div className="warning-banner sneaky">{sneaky}</div>}
       {data.warning && <div className="warning-banner">{data.warning}</div>}
 
-      <section className="levels-grid">
-        {data.levels?.length ? data.levels.map((lv) => (
-          <button
-            key={lv.number}
-            className={`level-card ${lv.locked ? "locked" : ""} ${lv.completed ? "completed" : ""}`}
-            disabled={lv.locked}
-            onClick={() => navigate(`/game/level/${lv.number}`)}
-          >
-            <span className="level-number">0{lv.number}</span>
-            <span className="level-title">{lv.title}</span>
-            <span className="level-status">
-              {lv.completed ? "✅ Completed" : lv.locked ? "🔒 Locked" : "▶ Play"}
-            </span>
-          </button>
-        )) : <p>No levels found. Add level data to the hintgame database.</p>}
-      </section>
+      {data.hunt?.status !== "running" ? (
+        <section className="level-card-large" aria-live="polite">
+          <p className="eyebrow">HUNT STATUS</p>
+          <h2>
+            {data.hunt?.status === "countdown"
+              ? "Get ready!"
+              : data.hunt?.status === "ended"
+                ? "Game ended"
+                : "Waiting for the hunt to start"}
+          </h2>
+          {data.hunt?.status === "countdown" ? (
+            <p className="panel-copy">
+              The game starts in{" "}
+              <strong>
+                {Math.max(0, Math.ceil((new Date(data.hunt.startsAt).getTime() - now) / 1000))} seconds
+              </strong>
+              . Stay on this page; your game will open automatically.
+            </p>
+          ) : data.hunt?.status === "ended" ? (
+            <p className="panel-copy">
+              The administrator ended the game. Your team progress and results have been preserved.
+            </p>
+          ) : (
+            <p className="panel-copy">The administrator will start the hunt shortly.</p>
+          )}
+        </section>
+      ) : (
+        <section className="levels-grid">
+          {data.levels?.length ? data.levels.map((lv) => (
+            <button
+              key={lv.number}
+              className={`level-card ${lv.locked ? "locked" : ""} ${lv.completed ? "completed" : ""}`}
+              disabled={lv.locked}
+              onClick={() => navigate(`/game/level/${lv.number}`)}
+            >
+              <span className="level-number">0{lv.number}</span>
+              <span className="level-title">{lv.title}</span>
+              <span className="level-status">
+                {lv.completed ? "✅ Completed" : lv.locked ? "🔒 Locked" : "▶ Play"}
+              </span>
+            </button>
+          )) : <p>No levels found. Add level data to the hintgame database.</p>}
+        </section>
+      )}
     </main>
   );
 }

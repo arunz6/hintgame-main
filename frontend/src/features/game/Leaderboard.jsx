@@ -20,6 +20,7 @@ function formatTimeLeft(ms) {
 export default function Leaderboard() {
   const [teams, setTeams] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [hunt, setHunt] = useState({ status: "setup" });
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
 
@@ -28,18 +29,22 @@ export default function Leaderboard() {
     const json = await res.json();
     setTeams(json.teams || []);
     setSummary(json.summary || null);
+    setHunt(json.hunt || { status: "setup" });
     setLoading(false);
   }
 
   useEffect(() => {
     load();
-    const poll = setInterval(load, 5000);
+    const poll = setInterval(
+      load,
+      hunt.status === "running" ? 5000 : hunt.status === "countdown" ? 1000 : 2000,
+    );
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       clearInterval(poll);
       clearInterval(tick);
     };
-  }, []);
+  }, [hunt.status]);
 
   if (loading) return <main className="login-page"><p>Loading live view…</p></main>;
 
@@ -56,6 +61,26 @@ export default function Leaderboard() {
           </p>
         </div>
       </header>
+
+      {hunt.status !== "running" && (
+        <section className="level-card-large" aria-live="polite">
+          <p className="eyebrow">HUNT STATUS</p>
+          <h2>
+            {hunt.status === "countdown"
+              ? "The game is starting!"
+              : hunt.status === "ended"
+                ? "Game ended"
+                : "Waiting for the hunt to start"}
+          </h2>
+          <p className="panel-copy">
+            {hunt.status === "ended"
+              ? "Gameplay has stopped. Team results are preserved."
+              : hunt.status === "countdown" && hunt.startsAt
+              ? `The game starts in ${Math.max(0, Math.ceil((new Date(hunt.startsAt).getTime() - now) / 1000))} seconds.`
+              : "The administrator will start the hunt shortly."}
+          </p>
+        </section>
+      )}
 
       {summary && (
         <section className="spectator-stats">

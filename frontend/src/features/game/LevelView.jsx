@@ -1,5 +1,5 @@
 // frontend/src/features/game/LevelView.jsx
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getTeamSessionHeaders } from "../../app/team-session";
 import { serverUrl } from "../../app/api-config";
@@ -23,19 +23,78 @@ export default function LevelView({ team, levelNumber, onBack }) {
   const [lockUntil, setLockUntil] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
+  const [hunt, setHunt] = useState(null);
+  const [loadError, setLoadError] = useState("");
 
-  useEffect(() => {
-    (async () => {
+  const loadLevel = useCallback(async () => {
+    try {
       const res = await fetch(`${serverUrl}/api/game/level/${levelNumber}?teamId=${team.id}`, {
         headers: getTeamSessionHeaders(),
       });
       const json = await res.json();
+      if (json.huntNotStarted) {
+        setHunt(json.hunt);
+        setLevel(null);
+        setLoadError("");
+        setLoading(false);
+        return;
+      }
+      if (!res.ok) {
+        setLoadError(json.message || "Could not load level.");
+        setLevel(null);
+        setLoading(false);
+        return;
+      }
       setLevel(json);
+      setHunt({ status: "running" });
       setClue(json.clue);
       setLockUntil(json.lockUntil ? new Date(json.lockUntil).getTime() : null);
+      setLoadError("");
       setLoading(false);
-    })();
+    } catch {
+      setLoadError("Could not connect to the game server.");
+      setLoading(false);
+    }
   }, [levelNumber, team.id]);
+
+  const checkHuntStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${serverUrl}/api/game/levels/${team.id}`, {
+        headers: getTeamSessionHeaders(),
+      });
+      const json = await res.json();
+      if (res.ok && json.hunt?.status) {
+        setHunt(json.hunt);
+        if (json.hunt.status === "running") {
+          setLoadError("");
+          await loadLevel();
+        } else {
+          setLevel(null);
+        }
+      }
+    } catch (error) {
+      console.error("Could not refresh hunt status:", error);
+    }
+  }, [loadLevel, team.id]);
+
+  useEffect(() => {
+    loadLevel();
+  }, [loadLevel]);
+
+  useEffect(() => {
+    if (hunt?.status === "running") return undefined;
+    const id = setInterval(
+      hunt?.status === "ended" ? checkHuntStatus : loadLevel,
+      hunt?.status === "ended" ? 3000 : 1000,
+    );
+    return () => clearInterval(id);
+  }, [hunt?.status, checkHuntStatus, loadLevel]);
+
+  useEffect(() => {
+    if (hunt?.status !== "running") return undefined;
+    const id = setInterval(checkHuntStatus, 3000);
+    return () => clearInterval(id);
+  }, [hunt?.status, checkHuntStatus]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -81,6 +140,33 @@ export default function LevelView({ team, levelNumber, onBack }) {
   }
 
   if (loading) return <main className="login-page"><p>Loading level…</p></main>;
+  if (loadError) return <main className="login-page"><p>{loadError}</p></main>;
+  if (hunt?.status !== "running") {
+    const seconds = hunt?.startsAt
+      ? Math.max(0, Math.ceil((new Date(hunt.startsAt).getTime() - now) / 1000))
+      : null;
+    return (
+      <main className="login-page">
+        <section className="login-panel" aria-live="polite">
+          <p className="eyebrow">HINTGAME / {hunt?.status === "ended" ? "GAME ENDED" : "GET READY"}</p>
+          <h1>
+            {hunt?.status === "countdown"
+              ? "The game is starting!"
+              : hunt?.status === "ended"
+                ? "Game ended"
+                : "Waiting for the hunt to start"}
+          </h1>
+          <p className="panel-copy">
+            {hunt?.status === "ended"
+              ? "The administrator ended the game. Your team progress and results have been preserved."
+              : seconds === null
+              ? "The administrator will start the hunt shortly."
+              : `Your game starts in ${seconds} seconds. Stay on this page.`}
+          </p>
+        </section>
+      </main>
+    );
+  }
   if (!level) return <main className="login-page"><p>Could not load level.</p></main>;
 
   return (

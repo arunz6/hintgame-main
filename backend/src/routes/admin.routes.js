@@ -15,6 +15,7 @@ import {
   saveQuestionSet,
   setQuestionSetFinalized,
   startHunt,
+  endHunt,
 } from "../controller/admin.controller.js";
 
 const router = Router();
@@ -33,5 +34,6 @@ router.get("/levels", getLevels);
 router.post("/levels/sets", saveQuestionSet);
 router.post("/levels/sets/finalize", setQuestionSetFinalized);
 router.post("/start-hunt", startHunt);
+router.post("/end-hunt", endHunt);
 
 export default router;

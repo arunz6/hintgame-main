@@ -53,6 +53,15 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.use("/api", (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      message: "Database is unavailable. The server is reconnecting; please try again shortly.",
+    });
+  }
+  return next();
+});
+
 app.use("/api/teams", teamRoutes);
 app.use("/api/game", gameRoutes);
 app.use("/api/admin", adminRoutes);

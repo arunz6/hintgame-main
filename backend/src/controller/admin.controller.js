@@ -2,6 +2,7 @@
 import Team from "../model/user.schema.js";
 import Level from "../model/level.schema.js";
 import Hunt from "../model/hunt.schema.js";
+import { getHuntState } from "../utils/hunt-state.js";
 import mongoose from "mongoose";
 import { timingSafeEqual } from "node:crypto";
 
@@ -58,9 +59,9 @@ function checkKey(req, res) {
 export async function overview(req, res) {
   if (!checkKey(req, res)) return;
   try {
-    const teams = await Team.find().sort({ currentLevel: -1, startedAt: 1 });
-    const [hunt, levels] = await Promise.all([
-      Hunt.findById("main").lean(),
+    const hunt = await getHuntState();
+    const [teams, levels] = await Promise.all([
+      Team.find().sort({ currentLevel: -1, startedAt: 1 }),
       Level.find({ number: { $gte: 1, $lte: 4 } }).lean(),
     ]);
     const now = new Date();
@@ -97,8 +98,12 @@ export async function addTeam(req, res) {
   try {
     const { teamName, teamCode, password, members, group } = req.body;
 
-    if (!teamName || !teamCode || !password)
-      return res.status(400).json({ message: "teamName, teamCode, password are required." });
+    if (
+      typeof teamName !== "string" || !teamName.trim() ||
+      typeof teamCode !== "string" || !teamCode.trim() ||
+      typeof password !== "string" || password.length < 6
+    )
+      return res.status(400).json({ message: "Team name and code are required; password must be at least 6 characters." });
     if (!GROUPS.includes(group))
       return res.status(400).json({ message: "Group must be A, B, C, or D." });
 
@@ -136,7 +141,10 @@ export async function deleteTeam(req, res) {
   if (!checkKey(req, res)) return;
   try {
     const { teamId } = req.body;
-    await Team.findByIdAndDelete(teamId);
+    if (!mongoose.isValidObjectId(teamId))
+      return res.status(400).json({ message: "A valid team ID is required." });
+    const team = await Team.findByIdAndDelete(teamId);
+    if (!team) return res.status(404).json({ message: "Team not found." });
     return res.json({ message: "Team deleted." });
   } catch (e) {
     console.error(e);
@@ -149,11 +157,21 @@ export async function updateTeam(req, res) {
   if (!checkKey(req, res)) return;
   try {
     const { teamId, teamName, teamCode, group } = req.body;
+    if (!mongoose.isValidObjectId(teamId))
+      return res.status(400).json({ message: "A valid team ID is required." });
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ message: "Team not found." });
 
-    if (teamName) team.teamName = teamName.trim();
-    if (teamCode) team.teamCode = teamCode.trim().toUpperCase();
+    if (teamName !== undefined) {
+      if (typeof teamName !== "string" || !teamName.trim())
+        return res.status(400).json({ message: "Team name cannot be empty." });
+      team.teamName = teamName.trim();
+    }
+    if (teamCode !== undefined) {
+      if (typeof teamCode !== "string" || !teamCode.trim())
+        return res.status(400).json({ message: "Team code cannot be empty." });
+      team.teamCode = teamCode.trim().toUpperCase();
+    }
     if (group) {
       if (!GROUPS.includes(group))
         return res.status(400).json({ message: "Group must be A, B, C, or D." });
@@ -165,6 +183,8 @@ export async function updateTeam(req, res) {
   } catch (e) {
     if (e.code === 11000)
       return res.status(409).json({ message: "Team name/code already exists." });
+    if (e.name === "ValidationError")
+      return res.status(400).json({ message: e.message });
     console.error(e);
     return res.status(500).json({ message: "Could not update team." });
   }
@@ -175,7 +195,9 @@ export async function resetPassword(req, res) {
   if (!checkKey(req, res)) return;
   try {
     const { teamId, newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6)
+    if (!mongoose.isValidObjectId(teamId))
+      return res.status(400).json({ message: "A valid team ID is required." });
+    if (typeof newPassword !== "string" || newPassword.length < 6)
       return res.status(400).json({ message: "Password must be at least 6 characters." });
 
     const team = await Team.findById(teamId).select("+password");
@@ -197,6 +219,10 @@ export async function updateMember(req, res) {
   if (!checkKey(req, res)) return;
   try {
     const { teamId, memberId, name } = req.body;
+    if (!mongoose.isValidObjectId(teamId) || !mongoose.isValidObjectId(memberId))
+      return res.status(400).json({ message: "Valid team and member IDs are required." });
+    if (typeof name !== "string" || !name.trim())
+      return res.status(400).json({ message: "Member name cannot be empty." });
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ message: "Team not found." });
     const member = team.members.id(memberId);
@@ -205,6 +231,8 @@ export async function updateMember(req, res) {
     await team.save();
     return res.json({ message: "Member updated." });
   } catch (e) {
+    if (e.name === "ValidationError")
+      return res.status(400).json({ message: e.message });
     console.error(e);
     return res.status(500).json({ message: "Could not update member." });
   }
@@ -215,6 +243,10 @@ export async function addMember(req, res) {
   if (!checkKey(req, res)) return;
   try {
     const { teamId, name } = req.body;
+    if (!mongoose.isValidObjectId(teamId))
+      return res.status(400).json({ message: "A valid team ID is required." });
+    if (typeof name !== "string" || !name.trim())
+      return res.status(400).json({ message: "Member name cannot be empty." });
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ message: "Team not found." });
     if (team.members.length >= MAX_MEMBERS)
@@ -223,6 +255,8 @@ export async function addMember(req, res) {
     await team.save();
     return res.json({ message: "Member added." });
   } catch (e) {
+    if (e.name === "ValidationError")
+      return res.status(400).json({ message: e.message });
     console.error(e);
     return res.status(500).json({ message: "Could not add member." });
   }
@@ -233,6 +267,8 @@ export async function deleteMember(req, res) {
   if (!checkKey(req, res)) return;
   try {
     const { teamId, memberId } = req.body;
+    if (!mongoose.isValidObjectId(teamId) || !mongoose.isValidObjectId(memberId))
+      return res.status(400).json({ message: "Valid team and member IDs are required." });
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ message: "Team not found." });
     if (team.members.length <= MIN_MEMBERS)
@@ -243,6 +279,8 @@ export async function deleteMember(req, res) {
     await team.save();
     return res.json({ message: "Member deleted." });
   } catch (e) {
+    if (e.name === "ValidationError")
+      return res.status(400).json({ message: e.message });
     console.error(e);
     return res.status(500).json({ message: "Could not delete member." });
   }
@@ -253,10 +291,13 @@ export async function disqualify(req, res) {
   if (!checkKey(req, res)) return;
   try {
     const { teamId } = req.body;
-    await Team.findByIdAndUpdate(teamId, {
+    if (!mongoose.isValidObjectId(teamId))
+      return res.status(400).json({ message: "A valid team ID is required." });
+    const team = await Team.findByIdAndUpdate(teamId, {
       status: "eliminated",
       eliminatedAt: new Date(),
     });
+    if (!team) return res.status(404).json({ message: "Team not found." });
     return res.json({ message: "Team disqualified." });
   } catch (e) {
     console.error(e);
@@ -269,7 +310,10 @@ export async function resetLock(req, res) {
   if (!checkKey(req, res)) return;
   try {
     const { teamId } = req.body;
-    await Team.findByIdAndUpdate(teamId, { lockUntil: null, wrongAttempts: 0 });
+    if (!mongoose.isValidObjectId(teamId))
+      return res.status(400).json({ message: "A valid team ID is required." });
+    const team = await Team.findByIdAndUpdate(teamId, { lockUntil: null, wrongAttempts: 0 });
+    if (!team) return res.status(404).json({ message: "Team not found." });
     return res.json({ message: "Lock cleared." });
   } catch (e) {
     console.error(e);
@@ -454,7 +498,7 @@ export async function setQuestionSetFinalized(req, res) {
     }
 
     for (const level of levels) {
-      level.groups[group].finalized = finalized;
+      level.set(`groups.${group}.finalized`, finalized);
       await level.save();
     }
 
@@ -463,6 +507,8 @@ export async function setQuestionSetFinalized(req, res) {
       finalized,
     });
   } catch (e) {
+    if (e.name === "ValidationError")
+      return res.status(400).json({ message: e.message });
     console.error(e);
     return res.status(500).json({ message: "Could not update set status." });
   }
@@ -481,11 +527,15 @@ export async function startHunt(req, res) {
     if (!huntCollectionExists) await Hunt.createCollection();
 
     session = await mongoose.startSession();
-    let startedAt;
+    let startsAt;
+    let isNewGame = false;
     await session.withTransaction(async () => {
       const currentHunt = await Hunt.findById("main").session(session);
-      if (currentHunt?.status === "running") {
-        const error = new Error("The hunt has already started.");
+      if (currentHunt?.status === "running" || currentHunt?.status === "countdown") {
+        const message = currentHunt.status === "countdown"
+          ? "The hunt countdown is already in progress."
+          : "The hunt has already started.";
+        const error = new Error(message);
         error.statusCode = 409;
         throw error;
       }
@@ -499,27 +549,46 @@ export async function startHunt(req, res) {
         throw error;
       }
 
-      startedAt = new Date();
+      startsAt = new Date();
+      isNewGame = currentHunt?.status === "ended";
       await Team.updateMany(
-        { status: "not_started" },
+        isNewGame ? {} : { status: "not_started" },
         {
-          $set: {
-            status: "playing",
-            startedAt,
-          },
+          $set: isNewGame
+            ? {
+                status: "playing",
+                currentLevel: 1,
+                startedAt: startsAt,
+                finishedAt: null,
+                penaltySeconds: 0,
+                hintsUsed: 0,
+                levelSolvedAt: [],
+                lockUntil: null,
+                lockCount: 0,
+                wrongAttempts: 0,
+                lastLockedLevel: null,
+                eliminatedAt: null,
+                finalRank: null,
+                completionRank: null,
+              }
+            : { status: "playing", startedAt: startsAt },
         },
         { session },
       );
 
       const hunt = currentHunt || new Hunt({ _id: "main" });
       hunt.status = "running";
-      hunt.startedAt = startedAt;
+      hunt.startsAt = null;
+      hunt.startedAt = startsAt;
+      hunt.endedAt = null;
       await hunt.save({ session });
     });
 
     return res.json({
-      message: "The hunt has started.",
-      hunt: { status: "running", startedAt },
+      message: isNewGame
+        ? "The new game has started. Team progress has been reset."
+        : "The game has started.",
+      hunt: { status: "running", startedAt: startsAt },
     });
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
@@ -527,6 +596,45 @@ export async function startHunt(req, res) {
       return res.status(409).json({ message: "The hunt is starting. Refresh the admin panel and check its status." });
     console.error("Could not start hunt:", error);
     return res.status(500).json({ message: "Could not start the hunt. Check the backend logs for details." });
+  } finally {
+    if (session) await session.endSession();
+  }
+}
+
+export async function endHunt(req, res) {
+  if (!checkKey(req, res)) return;
+  let session;
+  try {
+    session = await mongoose.startSession();
+    let endedAt;
+    await session.withTransaction(async () => {
+      const hunt = await Hunt.findById("main").session(session);
+      if (!hunt || (hunt.status !== "countdown" && hunt.status !== "running")) {
+        const error = new Error(
+          hunt?.status === "ended"
+            ? "The game has already ended."
+            : "The game has not started.",
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      endedAt = new Date();
+      hunt.status = "ended";
+      hunt.endedAt = endedAt;
+      await hunt.save({ session });
+    });
+
+    return res.json({
+      message: "The game has ended. Team progress and results have been kept.",
+      hunt: { status: "ended", endedAt },
+    });
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
+    if (error.code === 112 || error.code === 251)
+      return res.status(409).json({ message: "The game is ending. Refresh the admin panel to check its status." });
+    console.error("Could not end game:", error);
+    return res.status(500).json({ message: "Could not end the game. Check the backend logs for details." });
   } finally {
     if (session) await session.endSession();
   }
