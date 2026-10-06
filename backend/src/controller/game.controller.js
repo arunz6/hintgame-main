@@ -5,7 +5,9 @@ import { getHuntState } from "../utils/hunt-state.js";
 
 const LOCK_MINUTES = 30;
 const REFRESH_LOCK_MINUTES = 35;
-const ELIMINATION_TARGETS = { 1: 15, 2: 9, 3: 6 };
+const ELIMINATION_TARGETS = { 1: 15, 2: 9, 3: 6, 4: 4 };
+const FINISHED_MESSAGE =
+  "Vector displacement: Zero. Thermodynamic equilibrium: Not achieved. Do not mistake the closure of the campus loop for the termination of the experiment. Your presence at Source Coordinate Zero has simply activated the Omega Trigger. The prize remains locked behind a final dynamic resistance barrier. Prepare for a direct, high-frequency cognitive trial right here at the transmission desk. The ultimate asset belongs only to the apex architecture that dominates this final processing cycle";
 
 const publicTeam = (team) => ({
   id: team._id,
@@ -58,9 +60,11 @@ export async function getLevels(req, res) {
     let warning = null;
     if (target) {
       const half = Math.ceil(target / 2);
-      const finishedCount = await Team.countDocuments({
-        currentLevel: { $gt: team.currentLevel },
-      });
+      const finishedCount = team.currentLevel === 4
+        ? await Team.countDocuments({ status: "finished" })
+        : await Team.countDocuments({
+            currentLevel: { $gt: team.currentLevel },
+          });
       if (finishedCount >= half) {
         warning = "⚠ You have less time — other teams are completing this level fast!";
       }
@@ -70,6 +74,7 @@ export async function getLevels(req, res) {
       team: publicTeam(team),
       levels: safe,
       warning,
+      completionMessage: FINISHED_MESSAGE,
       hunt: {
         status: hunt.status,
         startsAt: hunt.startsAt,
@@ -126,6 +131,8 @@ export async function getLevelDetail(req, res) {
       });
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
+    if (team.status === "finished")
+      return res.status(403).json({ message: FINISHED_MESSAGE });
 
     if (Number(number) > team.currentLevel)
       return res.status(403).json({ message: "Level is locked." });
@@ -173,6 +180,8 @@ export async function submitAnswer(req, res) {
       });
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
+    if (team.status === "finished")
+      return res.status(403).json({ message: FINISHED_MESSAGE });
     if (!Number.isInteger(level) || level > team.currentLevel || level < 1)
       return res.status(403).json({ message: "Level is locked." });
 
@@ -240,6 +249,8 @@ export async function submitCode(req, res) {
       });
     if (team.status === "eliminated")
       return res.status(403).json({ message: "You have been eliminated." });
+    if (team.status === "finished")
+      return res.status(403).json({ message: FINISHED_MESSAGE });
     if (!Number.isInteger(level) || level > team.currentLevel || level < 1)
       return res.status(403).json({ message: "Level is locked." });
 
@@ -279,7 +290,7 @@ export async function submitCode(req, res) {
         else if (team.completionRank === 3) team.finalRank = "bronze";
       }
       await team.save();
-      await maybeEliminate(team.currentLevel - 1);
+      await maybeEliminate(level);
     }
 
     return res.json({ correct: true, currentLevel: team.currentLevel });
@@ -294,16 +305,21 @@ async function maybeEliminate(completedLevel) {
   const target = ELIMINATION_TARGETS[completedLevel];
   if (!target) return;
 
-  const passed = await Team.countDocuments({
-    currentLevel: { $gt: completedLevel },
-    status: { $ne: "eliminated" },
-  });
+  const passed = completedLevel === 4
+    ? await Team.countDocuments({ status: "finished" })
+    : await Team.countDocuments({
+        currentLevel: { $gt: completedLevel },
+        status: { $ne: "eliminated" },
+      });
 
   if (passed >= target) {
-    await Team.updateMany(
-      { currentLevel: completedLevel, status: { $ne: "eliminated" } },
-      { $set: { status: "eliminated", eliminatedAt: new Date() } }
-    );
+    const filter = completedLevel === 4
+      ? { status: { $nin: ["eliminated", "finished"] } }
+      : { currentLevel: completedLevel, status: { $ne: "eliminated" } };
+
+    await Team.updateMany(filter, {
+      $set: { status: "eliminated", eliminatedAt: new Date() },
+    });
   }
 }
 

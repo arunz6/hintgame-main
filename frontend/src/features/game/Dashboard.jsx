@@ -99,6 +99,19 @@ export default function Dashboard({ team }) {
     );
   }
 
+  if (data.team?.status === "finished") {
+    return (
+      <main className="login-page">
+        <section className="login-panel">
+          <p className="eyebrow">HINTGAME / OMEGA TRIGGER</p>
+          <h1>Final processing cycle</h1>
+          <p className="panel-copy">{data.completionMessage}</p>
+          <button className="text-button" onClick={handleLogout}>Sign out</button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="dashboard-page">
       <header className="dash-header">
