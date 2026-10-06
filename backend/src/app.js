@@ -17,22 +17,8 @@ const publicPath = path.resolve(__dirname, "../public");
 
 app.use(express.static(publicPath));
 
-app.use((req, res, next) => {
-  const origin = req.get("origin");
-  if (origin) {
-    try {
-      const forwardedProtocol = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
-      const requestProtocol = forwardedProtocol || req.protocol;
-      const requestOrigin = new URL(`${requestProtocol}://${req.get("host")}`).origin;
-      if (new URL(origin).origin === requestOrigin) {
-        return next();
-      }
-    } catch {
-      return next(new Error("Invalid request origin."));
-    }
-  }
-
-  return cors({
+app.use(
+  cors({
     origin(requestOrigin, callback) {
       if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
         return callback(null, true);
@@ -40,8 +26,10 @@ app.use((req, res, next) => {
       return callback(new Error("Origin is not allowed by CORS."));
     },
     credentials: true,
-  })(req, res, next);
-});
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-team-id", "x-team-session"],
+  }),
+);
 
 app.use(express.json({ limit: "32kb" }));
 
