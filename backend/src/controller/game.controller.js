@@ -4,7 +4,6 @@ import Level from "../model/level.schema.js";
 import { getHuntState } from "../utils/hunt-state.js";
 
 const LOCK_MINUTES = 5;
-const REFRESH_LOCK_MINUTES = 35;
 const ELIMINATION_TARGETS = { 1: 15, 2: 9, 3: 6, 4: 4 };
 const FINISHED_MESSAGE =
   "Vector displacement: Zero. Thermodynamic equilibrium: Not achieved. Do not mistake the closure of the campus loop for the termination of the experiment. Your presence at Source Coordinate Zero has simply activated the Omega Trigger. The prize remains locked behind a final dynamic resistance barrier. Prepare for a direct, high-frequency cognitive trial right here at the transmission desk. The ultimate asset belongs only to the apex architecture that dominates this final processing cycle";
@@ -85,33 +84,6 @@ export async function getLevels(req, res) {
   } catch (e) {
     console.error(e);
     return res.status(500).json({ message: "Could not load levels." });
-  }
-}
-
-/* ---------- REFRESH PENALTY ---------- */
-export async function applyRefreshPenalty(req, res) {
-  try {
-    const team = req.team;
-
-    const now = new Date();
-    if (team.lockUntil && team.lockUntil > now) {
-      const newLock = new Date(now.getTime() + REFRESH_LOCK_MINUTES * 60 * 1000);
-      if (newLock > team.lockUntil) {
-        team.lockUntil = newLock;
-        team.lockCount = (team.lockCount || 0) + 1;
-        await team.save();
-        return res.json({
-          applied: true,
-          message: "Nice try, team. +5 minutes added. 😏",
-          lockUntil: team.lockUntil,
-        });
-      }
-    }
-
-    return res.json({ applied: false, lockUntil: team.lockUntil });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ message: "Could not apply refresh penalty." });
   }
 }
 

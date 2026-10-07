@@ -1,5 +1,5 @@
 // frontend/src/features/game/Dashboard.jsx
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getTeamSessionHeaders } from "../../app/team-session";
 import { serverUrl } from "../../app/api-config";
@@ -9,9 +9,7 @@ export default function Dashboard({ team }) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sneaky, setSneaky] = useState(null);
   const [now, setNow] = useState(Date.now());
-  const refreshCalled = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -34,29 +32,9 @@ export default function Dashboard({ team }) {
     }
   }, [team.id]);
 
-  // Called ONCE per page load
   useEffect(() => {
-    if (refreshCalled.current) return;
-    refreshCalled.current = true;
-    (async () => {
-      try {
-        const res = await fetch(`${serverUrl}/api/game/refresh`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...getTeamSessionHeaders(),
-          },
-          body: JSON.stringify({ teamId: team.id }),
-        });
-        const json = await res.json();
-        if (json.applied) {
-          setSneaky(json.message);
-          setTimeout(() => setSneaky(null), 8000);
-        }
-      } catch {}
-      load();
-    })();
-  }, [load, team.id]);
+    load();
+  }, [load]);
 
   // Poll every 5s (no penalty)
   useEffect(() => {
@@ -126,7 +104,6 @@ export default function Dashboard({ team }) {
         <button className="text-button" onClick={handleLogout}>Sign out</button>
       </header>
 
-      {sneaky && <div className="warning-banner sneaky">{sneaky}</div>}
       {data.warning && <div className="warning-banner">{data.warning}</div>}
 
       {data.hunt?.status !== "running" ? (
