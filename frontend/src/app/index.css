@@ -3102,6 +3102,35 @@ h1 {
   margin-top: 9px;
 }
 
+.team-set-count-wrap {
+  max-width: 100%;
+  margin: 8px 0 18px;
+  overflow-x: auto;
+}
+
+.team-set-count-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #f4f5f2;
+}
+
+.team-set-count-table th,
+.team-set-count-table td {
+  padding: 9px 12px;
+  border: 1px solid #303832;
+  text-align: center;
+}
+
+.team-set-count-table th {
+  color: #d7c16e;
+  font-size: 12px;
+}
+
+.team-set-count-table .set-count-unbalanced {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ffaaa5;
+}
+
 @media (max-width: 560px) {
   .level-group-editor {
     grid-template-columns: repeat(2, minmax(0, 1fr));

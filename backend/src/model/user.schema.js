@@ -16,10 +16,15 @@ const teamSchema = new mongoose.Schema(
       enum: ["A", "B", "C", "D"],
       required: true,
     },
-    levelGroups: {
-      type: Map,
-      of: { type: String, enum: ["A", "B", "C", "D"] },
-      default: () => new Map(),
+    levelSets: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (sets) =>
+          sets.length === 0 ||
+          (sets.length === 4 && sets.every((set) => ["A", "B", "C", "D"].includes(set))),
+        message: "Level sets must be empty or contain four values from A, B, C, and D.",
+      },
     },
 
     password: { type: String, required: true, select: false },

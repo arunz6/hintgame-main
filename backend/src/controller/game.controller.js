@@ -3,9 +3,9 @@ import Team from "../model/user.schema.js";
 import Level from "../model/level.schema.js";
 import { getHuntState } from "../utils/hunt-state.js";
 import {
-  getTeamGroupForLevel,
-  serializeTeamLevelGroups,
-} from "../utils/level-groups.js";
+  getSetKey,
+  serializeTeamLevelSets,
+} from "../utils/level-sets.js";
 
 const LOCK_MINUTES = 5;
 const ELIMINATION_TARGETS = { 1: 15, 2: 9, 3: 6, 4: 4 };
@@ -17,7 +17,7 @@ const publicTeam = (team) => ({
   teamName: team.teamName,
   teamCode: team.teamCode,
   group: team.group,
-  levelGroups: serializeTeamLevelGroups(team),
+  levelGroups: serializeTeamLevelSets(team),
   members: team.members.map((m) => ({ id: m._id, name: m.name })),
   status: team.status,
   currentLevel: team.currentLevel,
@@ -26,24 +26,31 @@ const publicTeam = (team) => ({
   completionRank: team.completionRank,
 });
 
-function getGroupQuestion(level, group) {
-  return level.groups?.[group]?.mcq?.question
-    ? level.groups[group].mcq
-    : level.mcq;
-}
-
-function groupIsConfigured(level, group) {
-  const groupData = level.groups?.[group];
-  const mcq = getGroupQuestion(level, group);
-  return Boolean(
-    groupData?.clue &&
-      groupData?.secretCode &&
-    groupData?.finalized === true &&
-    mcq?.question &&
-      Array.isArray(mcq.options) &&
-      mcq.options.length >= 2 &&
-      Number.isInteger(mcq.correctIndex)
-  );
+function getAssignedLevelSet(team, level) {
+  const setKey = getSetKey(team, level.number);
+  const data = setKey ? level.groups?.[setKey] : null;
+  const mcq = data?.mcq;
+  if (
+    !data?.finalized ||
+    !mcq?.question?.trim() ||
+    !Array.isArray(mcq.options) ||
+    mcq.options.length < 2 ||
+    !Number.isInteger(mcq.correctIndex) ||
+    mcq.correctIndex < 0 ||
+    mcq.correctIndex >= mcq.options.length ||
+    typeof mcq.options[mcq.correctIndex] !== "string" ||
+    !mcq.options[mcq.correctIndex].trim() ||
+    !data.clue?.trim() ||
+    !data.secretCode?.trim()
+  ) {
+    console.error("No question set assigned for this team and level.", {
+    teamCode: team.teamCode,
+    level: level.number,
+    setKey,
+    });
+    return null;
+  }
+  return { setKey, data, mcq };
 }
 
 /* ---------- GET LEVELS ---------- */
@@ -120,20 +127,20 @@ export async function getLevelDetail(req, res) {
     const solved = team.levelSolvedAt.some((l) => l.level === level.number);
     const lockActive = team.lockUntil && team.lockUntil > new Date();
 
-    const group = getTeamGroupForLevel(team, level.number);
-    const groupData = level.groups[group];
-    if (!groupIsConfigured(level, group))
-      return res.status(503).json({
-        message: `Set ${group} for Level ${level.number} is not finalized yet.`,
-      });
+    const assigned = getAssignedLevelSet(team, level);
+    if (!assigned)
+      return res.status(500).json({ message: "No question set assigned for this team and level." });
 
     return res.json({
       number: level.number,
       title: level.title,
-      mcq: getGroupQuestion(level, group),
-      group,
+      mcq: {
+        question: assigned.mcq.question,
+        options: assigned.mcq.options,
+      },
+      group: assigned.setKey,
       // only send this team's group clue
-      clue: solved ? groupData.clue : null,
+      clue: solved ? assigned.data.clue : null,
       lockUntil: lockActive ? team.lockUntil : null,
     });
   } catch (e) {
@@ -172,15 +179,11 @@ export async function submitAnswer(req, res) {
     const lv = await Level.findOne({ number: level });
     if (!lv) return res.status(404).json({ message: "Level not found." });
 
-    const group = getTeamGroupForLevel(team, level);
-    if (!groupIsConfigured(lv, group))
-      return res.status(503).json({
-        message: `Set ${group} for Level ${lv.number} is not finalized yet.`,
-      });
+    const assigned = getAssignedLevelSet(team, lv);
+    if (!assigned)
+      return res.status(500).json({ message: "No question set assigned for this team and level." });
 
-    const groupData = lv.groups[group];
-    const groupMcq = getGroupQuestion(lv, group);
-    if (answerIndex !== groupMcq.correctIndex) {
+    if (answerIndex !== assigned.mcq.correctIndex) {
       team.lockUntil = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
       team.wrongAttempts = (team.wrongAttempts || 0) + 1;
       team.penaltySeconds = (team.penaltySeconds || 0) + LOCK_MINUTES * 60;
@@ -205,7 +208,7 @@ export async function submitAnswer(req, res) {
     await maybeEliminate(level);
 
     // send THIS team's group clue
-    return res.json({ correct: true, clue: groupData.clue });
+    return res.json({ correct: true, clue: assigned.data.clue });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ message: "Could not submit answer." });
@@ -237,12 +240,10 @@ export async function submitCode(req, res) {
     if (!lv) return res.status(404).json({ message: "Level not found." });
 
     // check against this team's group code ONLY
-    const group = getTeamGroupForLevel(team, level);
-    if (!groupIsConfigured(lv, group))
-      return res.status(503).json({
-        message: `Set ${group} for Level ${lv.number} is not finalized yet.`,
-      });
-    const correctCode = lv.groups[group].secretCode;
+    const assigned = getAssignedLevelSet(team, lv);
+    if (!assigned)
+      return res.status(500).json({ message: "No question set assigned for this team and level." });
+    const correctCode = assigned.data.secretCode;
 
     if (String(code).trim().toUpperCase() !== correctCode)
       return res.status(400).json({ correct: false, message: "Wrong code. Try again." });

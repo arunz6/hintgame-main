@@ -4,11 +4,13 @@ import Level from "../model/level.schema.js";
 import Hunt from "../model/hunt.schema.js";
 import { getHuntState } from "../utils/hunt-state.js";
 import {
-  createTeamWithBalancedLevelGroups,
+  createTeamWithSuggestedLevelSets,
   GROUPS,
   LEVELS,
-  serializeTeamLevelGroups,
-} from "../utils/level-groups.js";
+  getSetKey,
+  isValidLevelSets,
+  serializeTeamLevelSets,
+} from "../utils/level-sets.js";
 import mongoose from "mongoose";
 import { timingSafeEqual } from "node:crypto";
 
@@ -18,10 +20,26 @@ function getHuntReadinessProblems(teams, levels) {
   const problems = [];
   if (teams.length < 2) problems.push("At least 2 teams are required.");
 
-  for (const group of GROUPS) {
+  const usedSetsByLevel = Object.fromEntries(LEVELS.map((level) => [level, new Set()]));
+  for (const team of teams) {
+    if (!isValidLevelSets(team.levelSets)) {
+      problems.push(`Team ${team.teamCode} needs four valid level sets (A, B, C, or D).`);
+      continue;
+    }
+    if (team.group !== team.levelSets[0]) {
+      problems.push(`Team ${team.teamCode} group must match its Level 1 set.`);
+    }
     for (const number of LEVELS) {
-      const level = levels.find((item) => item.number === number);
-      const set = level?.groups?.[group];
+      const setKey = getSetKey(team, number);
+      if (setKey) usedSetsByLevel[number].add(setKey);
+    }
+  }
+
+  for (const number of LEVELS) {
+    const level = levels.find((item) => item.number === number);
+    const codes = new Map();
+    for (const setKey of usedSetsByLevel[number]) {
+      const set = level?.groups?.[setKey];
       const mcq = set?.mcq;
       if (
         !set?.finalized ||
@@ -34,10 +52,16 @@ function getHuntReadinessProblems(teams, levels) {
         mcq.options.some((option) => !option?.trim()) ||
         !Number.isInteger(mcq.correctIndex) ||
         mcq.correctIndex < 0 ||
-        mcq.correctIndex >= mcq.options.length
+        mcq.correctIndex >= mcq.options.length ||
+        !mcq.options[mcq.correctIndex]?.trim()
       ) {
-        problems.push(`Set ${group}, Level ${number} is incomplete or not finalized.`);
+        problems.push(`Set ${setKey}, Level ${number} is incomplete or not finalized.`);
+        continue;
       }
+      const code = set.secretCode.trim().toUpperCase();
+      if (codes.has(code))
+        problems.push(`Sets ${codes.get(code)} and ${setKey}, Level ${number} use the same secret code.`);
+      else codes.set(code, setKey);
     }
   }
   return problems;
@@ -73,7 +97,8 @@ export async function overview(req, res) {
       teamName: t.teamName,
       teamCode: t.teamCode,
       group: t.group,
-      levelGroups: serializeTeamLevelGroups(t),
+      levelSets: t.levelSets,
+      levelGroups: serializeTeamLevelSets(t),
       members: t.members.map((m) => ({ id: m._id, name: m.name })),
       currentLevel: t.currentLevel,
       status: t.status,
@@ -100,7 +125,7 @@ export async function overview(req, res) {
 export async function addTeam(req, res) {
   if (!checkKey(req, res)) return;
   try {
-    const { teamName, teamCode, password, members } = req.body;
+    const { teamName, teamCode, password, members, levelSets } = req.body;
 
     if (
       typeof teamName !== "string" || !teamName.trim() ||
@@ -114,12 +139,15 @@ export async function addTeam(req, res) {
 
     if (normalizedMembers.length < MIN_MEMBERS || normalizedMembers.length > MAX_MEMBERS)
       return res.status(400).json({ message: `A team must have ${MIN_MEMBERS} to ${MAX_MEMBERS} members.` });
+    if (levelSets !== undefined && !isValidLevelSets(levelSets))
+      return res.status(400).json({ message: "Level sets must contain four values from A, B, C, and D." });
 
-    const team = await createTeamWithBalancedLevelGroups({
+    const team = await createTeamWithSuggestedLevelSets({
       teamName: teamName.trim(),
       teamCode: teamCode.trim().toUpperCase(),
       password,
       members: normalizedMembers.map((name) => ({ name })),
+      ...(levelSets ? { levelSets } : {}),
     });
 
     return res.status(201).json({
@@ -129,7 +157,8 @@ export async function addTeam(req, res) {
         teamName: team.teamName,
         teamCode: team.teamCode,
         group: team.group,
-        levelGroups: serializeTeamLevelGroups(team),
+        levelSets: team.levelSets,
+        levelGroups: serializeTeamLevelSets(team),
       },
     });
   } catch (e) {
@@ -162,16 +191,16 @@ export async function deleteTeam(req, res) {
 export async function updateTeam(req, res) {
   if (!checkKey(req, res)) return;
   try {
-    const { teamId, teamName, teamCode, group, levelGroups } = req.body;
+    const { teamId, teamName, teamCode, group, levelGroups, levelSets } = req.body;
     if (!mongoose.isValidObjectId(teamId))
       return res.status(400).json({ message: "A valid team ID is required." });
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ message: "Team not found." });
 
-    if (group !== undefined || levelGroups !== undefined) {
+    if (group !== undefined || levelGroups !== undefined || levelSets !== undefined) {
       const hunt = await getHuntState();
-      if (!["setup", "ended"].includes(hunt.status))
-        return res.status(409).json({ message: "Team question groups can only be changed before or after a hunt." });
+      if (hunt.status !== "setup")
+        return res.status(409).json({ message: "Team level sets can only be changed during hunt setup." });
     }
 
     if (teamName !== undefined) {
@@ -184,23 +213,20 @@ export async function updateTeam(req, res) {
         return res.status(400).json({ message: "Team code cannot be empty." });
       team.teamCode = teamCode.trim().toUpperCase();
     }
-    if (group !== undefined) {
-      if (!GROUPS.includes(group))
-        return res.status(400).json({ message: "Group must be A, B, C, or D." });
-      team.group = group;
-      team.levelGroups = Object.fromEntries(LEVELS.map((level) => [`level${level}`, group]));
-    }
-    if (levelGroups !== undefined) {
+    if (group !== undefined || levelGroups !== undefined || levelSets !== undefined) {
+      let nextLevelSets = levelSets;
+      if (nextLevelSets === undefined && levelGroups !== undefined) {
+        nextLevelSets = LEVELS.map((level) => levelGroups?.[`level${level}`]);
+      }
+      if (nextLevelSets === undefined && group !== undefined) {
+        nextLevelSets = LEVELS.map(() => group);
+      }
       if (
-        !levelGroups ||
-        typeof levelGroups !== "object" ||
-        LEVELS.some((level) => !GROUPS.includes(levelGroups[`level${level}`]))
+        !isValidLevelSets(nextLevelSets)
       )
-        return res.status(400).json({ message: "A valid group assignment is required for every level." });
-      team.levelGroups = Object.fromEntries(LEVELS.map(
-        (level) => [`level${level}`, levelGroups[`level${level}`]],
-      ));
-      team.group = levelGroups.level1;
+        return res.status(400).json({ message: "Level sets must contain four values from A, B, C, and D." });
+      team.levelSets = nextLevelSets;
+      team.group = nextLevelSets[0];
     }
 
     await team.save();
@@ -350,12 +376,24 @@ export async function resetLock(req, res) {
 export async function getLevels(req, res) {
   if (!checkKey(req, res)) return;
   try {
-    const levels = await Level.find({ number: { $gte: 1, $lte: 4 } })
-      .sort({ number: 1 })
-      .lean();
+    const [levels, teams] = await Promise.all([
+      Level.find({ number: { $gte: 1, $lte: 4 } }).sort({ number: 1 }).lean(),
+      Team.find().select("levelSets group").lean(),
+    ]);
+    const teamSetCounts = LEVELS.map((number) => {
+      const counts = Object.fromEntries(GROUPS.map((group) => [group, 0]));
+      for (const team of teams) {
+        const setKey = getSetKey(team, number);
+        if (setKey) counts[setKey] += 1;
+      }
+      return { level: number, ...counts };
+    });
+    const teamsBySet = Object.fromEntries(GROUPS.map((group) => [
+      group,
+      teams.filter((team) => LEVELS.some((number) => getSetKey(team, number) === group)).length,
+    ]));
     const setStatuses = await Promise.all(GROUPS.map(async (group) => {
       const missingLevels = [];
-      const codes = [];
       for (let number = 1; number <= 4; number += 1) {
         const level = levels.find((item) => item.number === number);
         const set = level?.groups?.[group];
@@ -377,23 +415,16 @@ export async function getLevels(req, res) {
           mcq.correctIndex >= mcq.options.length
         ) {
           missingLevels.push(number);
-        } else {
-          codes.push(set.secretCode.trim().toUpperCase());
-        }
-      }
-      if (new Set(codes).size !== codes.length) {
-        for (let number = 1; number <= 4; number += 1) {
-          if (!missingLevels.includes(number)) missingLevels.push(number);
         }
       }
       return {
         group,
         ready: missingLevels.length === 0,
         missingLevels,
-        assignedTeams: await Team.countDocuments({ group }),
+        assignedTeams: teamsBySet[group],
       };
     }));
-    return res.json({ levels, setStatuses });
+    return res.json({ levels, setStatuses, teamSetCounts });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ message: "Could not load level question sets." });
@@ -449,10 +480,6 @@ export async function saveQuestionSet(req, res) {
       });
     }
 
-    const codes = normalizedLevels.map((level) => level.secretCode);
-    if (new Set(codes).size !== codes.length)
-      return res.status(400).json({ message: "Each level in a set must have a different unlock code." });
-
     const existingLevels = await Level.find({ number: { $gte: 1, $lte: 4 } });
     if (existingLevels.some((level) => level.groups?.[group]?.finalized))
       return res.status(409).json({
@@ -496,7 +523,6 @@ export async function setQuestionSetFinalized(req, res) {
       return res.status(400).json({ message: "Save all four levels before finalizing a set." });
 
     if (finalized) {
-      const codes = [];
       for (const level of levels) {
         const set = level.groups?.[group];
         const mcq = set?.mcq?.question ? set.mcq : null;
@@ -516,10 +542,7 @@ export async function setQuestionSetFinalized(req, res) {
             message: `Set ${group} is incomplete at Level ${level.number}. Save all four levels first.`,
           });
         }
-        codes.push(set.secretCode.trim().toUpperCase());
       }
-      if (new Set(codes).size !== codes.length)
-        return res.status(400).json({ message: "Each level in a set must have a different unlock code." });
     }
 
     for (const level of levels) {

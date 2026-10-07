@@ -26,31 +26,27 @@ function EditableField({ label, value, onSave }) {
   );
 }
 
-function EditableLevelGroups({ value, onSave, disabled }) {
-  const groupSignature = [1, 2, 3, 4]
-    .map((level) => value?.[`level${level}`] || "A")
-    .join("");
+function EditableLevelSets({ value, onSave, disabled }) {
+  const setSignature = (value || []).join("");
   const [draft, setDraft] = useState(() =>
-    Object.fromEntries([1, 2, 3, 4].map((level, index) => [`level${level}`, groupSignature[index]])),
+    [1, 2, 3, 4].map((_, index) => setSignature[index] || "A"),
   );
-  const changed = [1, 2, 3, 4].some(
-    (level, index) => draft[`level${level}`] !== groupSignature[index],
-  );
+  const changed = draft.join("") !== setSignature;
 
   return (
     <div className="edit-field level-groups-field">
-      <label>Question group by level</label>
+      <label>Question set by level</label>
       <div className="level-group-editor">
         {[1, 2, 3, 4].map((level) => (
           <label className="level-group-select" key={level}>
             <span>Level {level}</span>
             <select
-              value={draft[`level${level}`]}
-              onChange={(event) => setDraft({ ...draft, [`level${level}`]: event.target.value })}
+              value={draft[level - 1]}
+              onChange={(event) => setDraft(draft.map((set, index) => index === level - 1 ? event.target.value : set))}
               disabled={disabled}
             >
               {GROUPS.map((group) => (
-                <option key={group} value={group}>Group {group}</option>
+                <option key={group} value={group}>Set {group}</option>
               ))}
             </select>
           </label>
@@ -96,6 +92,7 @@ export default function Admin() {
   const [teams, setTeams] = useState([]);
   const [levelDocs, setLevelDocs] = useState([]);
   const [setStatuses, setSetStatuses] = useState([]);
+  const [teamSetCounts, setTeamSetCounts] = useState([]);
   const [hunt, setHunt] = useState({ status: "setup", startedAt: null });
   const [readinessProblems, setReadinessProblems] = useState([]);
   const [startingHunt, setStartingHunt] = useState(false);
@@ -144,6 +141,7 @@ export default function Admin() {
         const levelData = await api("/api/admin/levels");
         setLevelDocs(levelData.levels);
         setSetStatuses(levelData.setStatuses);
+        setTeamSetCounts(levelData.teamSetCounts || []);
       }
       setAuthed(true);
       setError("");
@@ -312,7 +310,7 @@ export default function Admin() {
     catch (e) { alert(e.message); }
   }
   async function handleUpdateTeam(id, patch) {
-    try { await api("/api/admin/update-team", { teamId: id, ...patch }); await load(Boolean(patch.group || patch.levelGroups)); }
+    try { await api("/api/admin/update-team", { teamId: id, ...patch }); await load(Boolean(patch.group || patch.levelGroups || patch.levelSets)); }
     catch (e) { alert(e.message); }
   }
   async function handleResetPassword(id, name) {
@@ -434,7 +432,7 @@ export default function Admin() {
         ) : (
           <>
             <p className="panel-copy">
-              Complete and finalize all four levels for every group assigned to a team before starting.
+              Finalize every set used by a team at each level. Used sets on the same level need different unlock codes.
             </p>
             {readinessProblems.length > 0 && (
               <ul role="status">
@@ -633,11 +631,40 @@ export default function Admin() {
 
       <section className="level-card-large">
         <h2>All teams</h2>
+        <h3 className="admin-subhead">Teams per set per level</h3>
+        <div className="team-set-count-wrap">
+          <table className="team-set-count-table">
+            <thead>
+              <tr>
+                <th>Level</th>
+                {GROUPS.map((group) => <th key={group}>Set {group}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {[1, 2, 3, 4].map((level) => {
+                const row = teamSetCounts.find((counts) => counts.level === level) || {};
+                const values = GROUPS.map((group) => row[group] || 0);
+                const unbalanced = Math.max(...values) - Math.min(...values) > 1;
+                return (
+                  <tr key={level}>
+                    <th>Level {level}</th>
+                    {GROUPS.map((group) => (
+                      <td className={unbalanced ? "set-count-unbalanced" : ""} key={group}>{row[group] || 0}</td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
         {teams.length === 0 && <p className="panel-copy">No teams yet.</p>}
 
         <div className="team-admin-list">
           {teams.map((t) => {
             const open = expanded[t.id];
+            const route = t.levelSets?.length === 4
+              ? t.levelSets
+              : [t.group, t.group, t.group, t.group];
             return (
               <div key={t.id} className={`team-admin-card ${t.status === "eliminated" ? "elim" : ""}`}>
                 <div className="team-admin-head">
@@ -654,7 +681,7 @@ export default function Admin() {
                     <span>{t.members.length}/5 members</span>
                     <span>·</span>
                     <span className="team-level-route">
-                      Route: {[1, 2, 3, 4].map((level) => t.levelGroups?.[`level${level}`] || t.group).join(" → ")}
+                      Route: {[0, 1, 2, 3].map((index) => t.levelSets?.[index] || t.group).join(" → ")}
                     </span>
                     {t.lockedNow && (
                       <>
@@ -684,11 +711,11 @@ export default function Admin() {
                         const up = v.toUpperCase();
                         up !== t.teamCode && handleUpdateTeam(t.id, { teamCode: up });
                       }} />
-                      <EditableLevelGroups
-                        key={[1, 2, 3, 4].map((level) => t.levelGroups?.[`level${level}`] || t.group).join("")}
-                        value={t.levelGroups}
-                        onSave={(levelGroups) => handleUpdateTeam(t.id, { levelGroups })}
-                        disabled={!setupEditable}
+                      <EditableLevelSets
+                        key={route.join("")}
+                        value={route}
+                        onSave={(levelSets) => handleUpdateTeam(t.id, { levelSets })}
+                        disabled={!setupEditable || hunt.status !== "setup"}
                       />
                     </div>
 

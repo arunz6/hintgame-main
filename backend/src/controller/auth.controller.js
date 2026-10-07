@@ -2,16 +2,16 @@
 import { randomUUID } from "node:crypto";
 import Team from "../model/user.schema.js";
 import {
-  createTeamWithBalancedLevelGroups,
-  serializeTeamLevelGroups,
-} from "../utils/level-groups.js";
+  createTeamWithSuggestedLevelSets,
+  serializeTeamLevelSets,
+} from "../utils/level-sets.js";
 
 const publicTeam = (team) => ({
   id: team._id,
   teamName: team.teamName,
   teamCode: team.teamCode,
   group: team.group,
-  levelGroups: serializeTeamLevelGroups(team),
+  levelGroups: serializeTeamLevelSets(team),
   members: team.members.map((m) => ({ id: m._id, name: m.name })),
   status: team.status,
   currentLevel: team.currentLevel,
@@ -48,7 +48,7 @@ export async function registerTeam(req, res) {
       return res.status(400).json({ message: "Password must be at least 8 characters." });
     }
 
-    const team = await createTeamWithBalancedLevelGroups({
+    const team = await createTeamWithSuggestedLevelSets({
       teamName: teamName.trim(),
       teamCode: teamCode.trim().toUpperCase(),
       password,
