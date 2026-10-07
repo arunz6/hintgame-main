@@ -1,12 +1,17 @@
 // backend/src/controller/auth.controller.js
 import { randomUUID } from "node:crypto";
 import Team from "../model/user.schema.js";
+import {
+  createTeamWithBalancedLevelGroups,
+  serializeTeamLevelGroups,
+} from "../utils/level-groups.js";
 
 const publicTeam = (team) => ({
   id: team._id,
   teamName: team.teamName,
   teamCode: team.teamCode,
   group: team.group,
+  levelGroups: serializeTeamLevelGroups(team),
   members: team.members.map((m) => ({ id: m._id, name: m.name })),
   status: team.status,
   currentLevel: team.currentLevel,
@@ -15,7 +20,7 @@ const publicTeam = (team) => ({
 
 export async function registerTeam(req, res) {
   try {
-    const { teamName, teamCode, password, members, group } = req.body ?? {};
+    const { teamName, teamCode, password, members } = req.body ?? {};
 
     if (
       typeof teamName !== "string" ||
@@ -43,13 +48,10 @@ export async function registerTeam(req, res) {
       return res.status(400).json({ message: "Password must be at least 8 characters." });
     }
 
-    const normalizedGroup = ["A", "B", "C", "D"].includes(group) ? group : "A";
-
-    const team = await Team.create({
+    const team = await createTeamWithBalancedLevelGroups({
       teamName: teamName.trim(),
       teamCode: teamCode.trim().toUpperCase(),
       password,
-      group: normalizedGroup,
       members: normalizedMembers.map((name) => ({ name })),
     });
 

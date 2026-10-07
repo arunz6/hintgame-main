@@ -26,24 +26,39 @@ function EditableField({ label, value, onSave }) {
   );
 }
 
-function EditableGroup({ value, onSave }) {
-  const [draft, setDraft] = useState(value);
-  const changed = draft !== value;
-  useEffect(() => setDraft(value), [value]);
+function EditableLevelGroups({ value, onSave, disabled }) {
+  const groupSignature = [1, 2, 3, 4]
+    .map((level) => value?.[`level${level}`] || "A")
+    .join("");
+  const [draft, setDraft] = useState(() =>
+    Object.fromEntries([1, 2, 3, 4].map((level, index) => [`level${level}`, groupSignature[index]])),
+  );
+  const changed = [1, 2, 3, 4].some(
+    (level, index) => draft[`level${level}`] !== groupSignature[index],
+  );
 
   return (
-    <div className="edit-field">
-      <label>Group</label>
-      <div className="edit-row">
-        <select value={draft} onChange={(e) => setDraft(e.target.value)}>
-          {GROUPS.map((g) => (
-            <option key={g} value={g}>Group {g}</option>
-          ))}
-        </select>
-        <button className="ok-button" disabled={!changed} onClick={() => onSave(draft)}>
-          OK
-        </button>
+    <div className="edit-field level-groups-field">
+      <label>Question group by level</label>
+      <div className="level-group-editor">
+        {[1, 2, 3, 4].map((level) => (
+          <label className="level-group-select" key={level}>
+            <span>Level {level}</span>
+            <select
+              value={draft[`level${level}`]}
+              onChange={(event) => setDraft({ ...draft, [`level${level}`]: event.target.value })}
+              disabled={disabled}
+            >
+              {GROUPS.map((group) => (
+                <option key={group} value={group}>Group {group}</option>
+              ))}
+            </select>
+          </label>
+        ))}
       </div>
+      <button className="ok-button level-groups-save" disabled={!changed || disabled} onClick={() => onSave(draft)}>
+        Save route
+      </button>
     </div>
   );
 }
@@ -97,7 +112,6 @@ export default function Admin() {
     teamName: "",
     teamCode: "",
     password: "",
-    group: "A",
     members: ["", ""],
   });
 
@@ -276,7 +290,7 @@ export default function Admin() {
     e.preventDefault();
     try {
       await api("/api/admin/add-team", newTeam);
-      setNewTeam({ teamName: "", teamCode: "", password: "", group: "A", members: ["", ""] });
+      setNewTeam({ teamName: "", teamCode: "", password: "", members: ["", ""] });
       await load(true);
     } catch (e) {
       alert(e.message);
@@ -298,7 +312,7 @@ export default function Admin() {
     catch (e) { alert(e.message); }
   }
   async function handleUpdateTeam(id, patch) {
-    try { await api("/api/admin/update-team", { teamId: id, ...patch }); await load(Boolean(patch.group)); }
+    try { await api("/api/admin/update-team", { teamId: id, ...patch }); await load(Boolean(patch.group || patch.levelGroups)); }
     catch (e) { alert(e.message); }
   }
   async function handleResetPassword(id, name) {
@@ -565,7 +579,7 @@ export default function Admin() {
       <section className="level-card-large">
         <h2>Add a new team (2 to 5 members)</h2>
         <form onSubmit={handleAddTeam} className="admin-form">
-          <div className="admin-grid-4">
+          <div className="admin-grid-3">
             <div>
               <label>Team name</label>
               <input value={newTeam.teamName} onChange={(e) => setNewTeam({ ...newTeam, teamName: e.target.value })} required />
@@ -575,16 +589,11 @@ export default function Admin() {
               <input value={newTeam.teamCode} onChange={(e) => setNewTeam({ ...newTeam, teamCode: e.target.value })} required />
             </div>
             <div>
-              <label>Group</label>
-              <select value={newTeam.group} onChange={(e) => setNewTeam({ ...newTeam, group: e.target.value })}>
-                {GROUPS.map((g) => <option key={g} value={g}>Group {g}</option>)}
-              </select>
-            </div>
-            <div>
               <label>Password (min 6 chars)</label>
               <input type="password" autoComplete="new-password" minLength={6} value={newTeam.password} onChange={(e) => setNewTeam({ ...newTeam, password: e.target.value })} required />
             </div>
           </div>
+          <p className="admin-hint">Question groups for all four levels are assigned randomly and balanced across teams.</p>
 
           <label style={{ marginTop: 14 }}>Members ({newTeam.members.length}/5, minimum 2)</label>
           <div className="admin-grid-5">
@@ -643,6 +652,10 @@ export default function Admin() {
                     <span>{t.status}</span>
                     <span>·</span>
                     <span>{t.members.length}/5 members</span>
+                    <span>·</span>
+                    <span className="team-level-route">
+                      Route: {[1, 2, 3, 4].map((level) => t.levelGroups?.[`level${level}`] || t.group).join(" → ")}
+                    </span>
                     {t.lockedNow && (
                       <>
                         <span>·</span>
@@ -671,7 +684,12 @@ export default function Admin() {
                         const up = v.toUpperCase();
                         up !== t.teamCode && handleUpdateTeam(t.id, { teamCode: up });
                       }} />
-                      <EditableGroup value={t.group} onSave={(v) => v !== t.group && handleUpdateTeam(t.id, { group: v })} />
+                      <EditableLevelGroups
+                        key={[1, 2, 3, 4].map((level) => t.levelGroups?.[`level${level}`] || t.group).join("")}
+                        value={t.levelGroups}
+                        onSave={(levelGroups) => handleUpdateTeam(t.id, { levelGroups })}
+                        disabled={!setupEditable}
+                      />
                     </div>
 
                     <h3 className="admin-subhead">Members ({t.members.length}/5)</h3>

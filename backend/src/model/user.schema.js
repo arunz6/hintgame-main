@@ -16,6 +16,11 @@ const teamSchema = new mongoose.Schema(
       enum: ["A", "B", "C", "D"],
       required: true,
     },
+    levelGroups: {
+      type: Map,
+      of: { type: String, enum: ["A", "B", "C", "D"] },
+      default: () => new Map(),
+    },
 
     password: { type: String, required: true, select: false },
 

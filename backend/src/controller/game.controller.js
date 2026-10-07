@@ -2,6 +2,10 @@
 import Team from "../model/user.schema.js";
 import Level from "../model/level.schema.js";
 import { getHuntState } from "../utils/hunt-state.js";
+import {
+  getTeamGroupForLevel,
+  serializeTeamLevelGroups,
+} from "../utils/level-groups.js";
 
 const LOCK_MINUTES = 5;
 const ELIMINATION_TARGETS = { 1: 15, 2: 9, 3: 6, 4: 4 };
@@ -13,6 +17,7 @@ const publicTeam = (team) => ({
   teamName: team.teamName,
   teamCode: team.teamCode,
   group: team.group,
+  levelGroups: serializeTeamLevelGroups(team),
   members: team.members.map((m) => ({ id: m._id, name: m.name })),
   status: team.status,
   currentLevel: team.currentLevel,
@@ -115,17 +120,18 @@ export async function getLevelDetail(req, res) {
     const solved = team.levelSolvedAt.some((l) => l.level === level.number);
     const lockActive = team.lockUntil && team.lockUntil > new Date();
 
-    const groupData = level.groups[team.group];
-    if (!groupIsConfigured(level, team.group))
+    const group = getTeamGroupForLevel(team, level.number);
+    const groupData = level.groups[group];
+    if (!groupIsConfigured(level, group))
       return res.status(503).json({
-        message: `Set ${team.group} for Level ${level.number} is not finalized yet.`,
+        message: `Set ${group} for Level ${level.number} is not finalized yet.`,
       });
 
     return res.json({
       number: level.number,
       title: level.title,
-      mcq: getGroupQuestion(level, team.group),
-      group: team.group,
+      mcq: getGroupQuestion(level, group),
+      group,
       // only send this team's group clue
       clue: solved ? groupData.clue : null,
       lockUntil: lockActive ? team.lockUntil : null,
@@ -166,13 +172,14 @@ export async function submitAnswer(req, res) {
     const lv = await Level.findOne({ number: level });
     if (!lv) return res.status(404).json({ message: "Level not found." });
 
-    if (!groupIsConfigured(lv, team.group))
+    const group = getTeamGroupForLevel(team, level);
+    if (!groupIsConfigured(lv, group))
       return res.status(503).json({
-        message: `Set ${team.group} for Level ${lv.number} is not finalized yet.`,
+        message: `Set ${group} for Level ${lv.number} is not finalized yet.`,
       });
 
-    const groupData = lv.groups[team.group];
-    const groupMcq = getGroupQuestion(lv, team.group);
+    const groupData = lv.groups[group];
+    const groupMcq = getGroupQuestion(lv, group);
     if (answerIndex !== groupMcq.correctIndex) {
       team.lockUntil = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
       team.wrongAttempts = (team.wrongAttempts || 0) + 1;
@@ -230,11 +237,12 @@ export async function submitCode(req, res) {
     if (!lv) return res.status(404).json({ message: "Level not found." });
 
     // check against this team's group code ONLY
-    if (!groupIsConfigured(lv, team.group))
+    const group = getTeamGroupForLevel(team, level);
+    if (!groupIsConfigured(lv, group))
       return res.status(503).json({
-        message: `Set ${team.group} for Level ${lv.number} is not finalized yet.`,
+        message: `Set ${group} for Level ${lv.number} is not finalized yet.`,
       });
-    const correctCode = lv.groups[team.group].secretCode;
+    const correctCode = lv.groups[group].secretCode;
 
     if (String(code).trim().toUpperCase() !== correctCode)
       return res.status(400).json({ correct: false, message: "Wrong code. Try again." });

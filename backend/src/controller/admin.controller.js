@@ -3,20 +3,23 @@ import Team from "../model/user.schema.js";
 import Level from "../model/level.schema.js";
 import Hunt from "../model/hunt.schema.js";
 import { getHuntState } from "../utils/hunt-state.js";
+import {
+  createTeamWithBalancedLevelGroups,
+  GROUPS,
+  LEVELS,
+  serializeTeamLevelGroups,
+} from "../utils/level-groups.js";
 import mongoose from "mongoose";
 import { timingSafeEqual } from "node:crypto";
 
 const MIN_MEMBERS = 2;
 const MAX_MEMBERS = 5;
-const GROUPS = ["A", "B", "C", "D"];
-
 function getHuntReadinessProblems(teams, levels) {
   const problems = [];
   if (teams.length < 2) problems.push("At least 2 teams are required.");
 
-  const groups = [...new Set(teams.map((team) => team.group))];
-  for (const group of groups) {
-    for (let number = 1; number <= 4; number += 1) {
+  for (const group of GROUPS) {
+    for (const number of LEVELS) {
       const level = levels.find((item) => item.number === number);
       const set = level?.groups?.[group];
       const mcq = set?.mcq;
@@ -70,6 +73,7 @@ export async function overview(req, res) {
       teamName: t.teamName,
       teamCode: t.teamCode,
       group: t.group,
+      levelGroups: serializeTeamLevelGroups(t),
       members: t.members.map((m) => ({ id: m._id, name: m.name })),
       currentLevel: t.currentLevel,
       status: t.status,
@@ -96,7 +100,7 @@ export async function overview(req, res) {
 export async function addTeam(req, res) {
   if (!checkKey(req, res)) return;
   try {
-    const { teamName, teamCode, password, members, group } = req.body;
+    const { teamName, teamCode, password, members } = req.body;
 
     if (
       typeof teamName !== "string" || !teamName.trim() ||
@@ -104,9 +108,6 @@ export async function addTeam(req, res) {
       typeof password !== "string" || password.length < 6
     )
       return res.status(400).json({ message: "Team name and code are required; password must be at least 6 characters." });
-    if (!GROUPS.includes(group))
-      return res.status(400).json({ message: "Group must be A, B, C, or D." });
-
     const normalizedMembers = Array.isArray(members)
       ? members.map((m) => String(m).trim()).filter(Boolean)
       : [];
@@ -114,17 +115,22 @@ export async function addTeam(req, res) {
     if (normalizedMembers.length < MIN_MEMBERS || normalizedMembers.length > MAX_MEMBERS)
       return res.status(400).json({ message: `A team must have ${MIN_MEMBERS} to ${MAX_MEMBERS} members.` });
 
-    const team = await Team.create({
+    const team = await createTeamWithBalancedLevelGroups({
       teamName: teamName.trim(),
       teamCode: teamCode.trim().toUpperCase(),
       password,
-      group,
       members: normalizedMembers.map((name) => ({ name })),
     });
 
     return res.status(201).json({
       message: "Team added.",
-      team: { id: team._id, teamName: team.teamName, teamCode: team.teamCode, group: team.group },
+      team: {
+        id: team._id,
+        teamName: team.teamName,
+        teamCode: team.teamCode,
+        group: team.group,
+        levelGroups: serializeTeamLevelGroups(team),
+      },
     });
   } catch (e) {
     if (e.code === 11000)
@@ -156,11 +162,17 @@ export async function deleteTeam(req, res) {
 export async function updateTeam(req, res) {
   if (!checkKey(req, res)) return;
   try {
-    const { teamId, teamName, teamCode, group } = req.body;
+    const { teamId, teamName, teamCode, group, levelGroups } = req.body;
     if (!mongoose.isValidObjectId(teamId))
       return res.status(400).json({ message: "A valid team ID is required." });
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ message: "Team not found." });
+
+    if (group !== undefined || levelGroups !== undefined) {
+      const hunt = await getHuntState();
+      if (!["setup", "ended"].includes(hunt.status))
+        return res.status(409).json({ message: "Team question groups can only be changed before or after a hunt." });
+    }
 
     if (teamName !== undefined) {
       if (typeof teamName !== "string" || !teamName.trim())
@@ -172,10 +184,23 @@ export async function updateTeam(req, res) {
         return res.status(400).json({ message: "Team code cannot be empty." });
       team.teamCode = teamCode.trim().toUpperCase();
     }
-    if (group) {
+    if (group !== undefined) {
       if (!GROUPS.includes(group))
         return res.status(400).json({ message: "Group must be A, B, C, or D." });
       team.group = group;
+      team.levelGroups = Object.fromEntries(LEVELS.map((level) => [`level${level}`, group]));
+    }
+    if (levelGroups !== undefined) {
+      if (
+        !levelGroups ||
+        typeof levelGroups !== "object" ||
+        LEVELS.some((level) => !GROUPS.includes(levelGroups[`level${level}`]))
+      )
+        return res.status(400).json({ message: "A valid group assignment is required for every level." });
+      team.levelGroups = Object.fromEntries(LEVELS.map(
+        (level) => [`level${level}`, levelGroups[`level${level}`]],
+      ));
+      team.group = levelGroups.level1;
     }
 
     await team.save();

@@ -3055,3 +3055,59 @@ h1 {
     gap: 5px;
   }
 }
+
+.admin-hint {
+  margin: 8px 0 0;
+  color: #a69c83;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.team-level-route {
+  color: #e0c45e;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+}
+
+.level-groups-field {
+  grid-column: 1 / -1;
+}
+
+.level-group-editor {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.level-group-select {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: #adb6b0;
+  font-size: 11px;
+}
+
+.level-group-select select {
+  width: 100%;
+  height: 38px;
+  padding: 0 8px;
+  border: 1px solid #3a423d;
+  border-radius: 5px;
+  background: #111613;
+  color: #f4f5f2;
+}
+
+.level-groups-save {
+  justify-self: start;
+  margin-top: 9px;
+}
+
+@media (max-width: 560px) {
+  .level-group-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .team-level-route {
+    flex-basis: 100%;
+  }
+}
