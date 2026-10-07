@@ -1,5 +1,5 @@
 // frontend/src/features/game/LevelView.jsx
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getTeamSessionHeaders } from "../../app/team-session";
 import { serverUrl } from "../../app/api-config";
@@ -27,13 +27,21 @@ export default function LevelView({ team, levelNumber, onBack }) {
   const [loading, setLoading] = useState(true);
   const [hunt, setHunt] = useState(null);
   const [loadError, setLoadError] = useState("");
+  const [teamEliminated, setTeamEliminated] = useState(false);
+  const teamEliminatedRef = useRef(false);
+  const levelRequestInProgress = useRef(false);
 
   const loadLevel = useCallback(async () => {
+    if (levelRequestInProgress.current || teamEliminatedRef.current) return;
+    levelRequestInProgress.current = true;
+
     try {
       const res = await fetch(`${serverUrl}/api/game/level/${levelNumber}?teamId=${team.id}`, {
         headers: getTeamSessionHeaders(),
       });
       const json = await res.json();
+      if (teamEliminatedRef.current) return;
+
       if (json.huntNotStarted) {
         setHunt(json.hunt);
         setLevel(null);
@@ -42,6 +50,10 @@ export default function LevelView({ team, levelNumber, onBack }) {
         return;
       }
       if (!res.ok) {
+        if (json.message === "You have been eliminated.") {
+          teamEliminatedRef.current = true;
+          setTeamEliminated(true);
+        }
         setLoadError(json.message || "Could not load level.");
         setLevel(null);
         setLoading(false);
@@ -54,8 +66,11 @@ export default function LevelView({ team, levelNumber, onBack }) {
       setLoadError("");
       setLoading(false);
     } catch {
+      if (teamEliminatedRef.current) return;
       setLoadError("Could not connect to the game server.");
       setLoading(false);
+    } finally {
+      levelRequestInProgress.current = false;
     }
   }, [levelNumber, team.id]);
 
@@ -65,12 +80,22 @@ export default function LevelView({ team, levelNumber, onBack }) {
         headers: getTeamSessionHeaders(),
       });
       const json = await res.json();
+      if (teamEliminatedRef.current) return;
+
       if (res.ok && json.hunt?.status) {
-        setHunt(json.hunt);
+        if (json.team?.status === "eliminated") {
+          teamEliminatedRef.current = true;
+          setTeamEliminated(true);
+          setLoadError("You have been eliminated.");
+          setLevel(null);
+          setLoading(false);
+          return;
+        }
+
         if (json.hunt.status === "running") {
-          setLoadError("");
           await loadLevel();
         } else {
+          setHunt(json.hunt);
           setLevel(null);
         }
       }
@@ -84,19 +109,21 @@ export default function LevelView({ team, levelNumber, onBack }) {
   }, [loadLevel]);
 
   useEffect(() => {
+    if (teamEliminated) return undefined;
     if (hunt?.status === "running") return undefined;
     const id = setInterval(
       hunt?.status === "ended" ? checkHuntStatus : loadLevel,
       hunt?.status === "ended" ? 3000 : 1000,
     );
     return () => clearInterval(id);
-  }, [hunt?.status, checkHuntStatus, loadLevel]);
+  }, [hunt?.status, checkHuntStatus, loadLevel, teamEliminated]);
 
   useEffect(() => {
+    if (teamEliminated) return undefined;
     if (hunt?.status !== "running") return undefined;
     const id = setInterval(checkHuntStatus, 3000);
     return () => clearInterval(id);
-  }, [hunt?.status, checkHuntStatus]);
+  }, [hunt?.status, checkHuntStatus, teamEliminated]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -149,6 +176,7 @@ export default function LevelView({ team, levelNumber, onBack }) {
     setTimeout(goBack, 900);
   }
 
+  if (teamEliminated) return <main className="login-page player-state-page"><section className="login-panel player-state-panel"><p className="eyebrow">HINTGAME / EXPEDITION STATUS</p><h1>Team eliminated</h1><p className="panel-copy">Your team has been eliminated from the game.</p><button className="text-button player-state-action" onClick={goBack}>Return to dashboard</button></section></main>;
   if (loading) return <main className="login-page player-state-page"><section className="login-panel player-state-panel"><p className="eyebrow">HINTGAME / LEVEL {levelNumber}</p><h1>Loading your level…</h1></section></main>;
   if (loadError) return <main className="login-page player-state-page"><section className="login-panel player-state-panel"><p className="eyebrow">CONNECTION STATUS</p><h1>Unable to load this level</h1><p className="panel-copy">{loadError}</p><button className="text-button player-state-action" onClick={goBack}>Return to levels</button></section></main>;
   if (hunt?.status !== "running") {
