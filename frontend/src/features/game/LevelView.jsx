@@ -20,6 +20,7 @@ export default function LevelView({ team, levelNumber, onBack }) {
   const [selected, setSelected] = useState(null);
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("");
   const [lockUntil, setLockUntil] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
@@ -106,6 +107,7 @@ export default function LevelView({ team, levelNumber, onBack }) {
   async function submitAnswer() {
     if (selected === null || locked) return;
     setMessage("");
+    setMessageType("");
     const res = await fetch(`${serverUrl}/api/game/answer`, {
       method: "POST",
       headers: {
@@ -117,14 +119,17 @@ export default function LevelView({ team, levelNumber, onBack }) {
     const json = await res.json();
     if (!res.ok) {
       if (json.lockUntil) setLockUntil(new Date(json.lockUntil).getTime());
+      setMessageType("error");
       return setMessage(json.message || "Wrong.");
     }
     setClue(json.clue);
+    setMessageType("success");
     setMessage("✅ Correct! Here's your clue:");
   }
 
   async function submitCode() {
     setMessage("");
+    setMessageType("");
     const res = await fetch(`${serverUrl}/api/game/unlock`, {
       method: "POST",
       headers: {
@@ -134,7 +139,11 @@ export default function LevelView({ team, levelNumber, onBack }) {
       body: JSON.stringify({ teamId: team.id, level: levelNumber, code }),
     });
     const json = await res.json();
-    if (!res.ok) return setMessage(json.message || "Wrong code.");
+    if (!res.ok) {
+      setMessageType("error");
+      return setMessage(json.message || "Wrong code.");
+    }
+    setMessageType("success");
     setMessage("🎉 Level unlocked!");
     setTimeout(goBack, 900);
   }
@@ -217,18 +226,45 @@ export default function LevelView({ team, levelNumber, onBack }) {
       )}
 
       {clue && (
-        <section className="level-card-large">
-          <p className="eyebrow">🔎 CLUE</p>
-          <p className="clue-text">{clue}</p>
-          <label>Enter the unique code you found:</label>
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. LIB123" />
-          <button className="submit-button" onClick={submitCode}>
-            Unlock next level <span>→</span>
-          </button>
+        <section className="level-card-large level-clue-card" aria-labelledby="clue-heading">
+          <div className="clue-card-heading">
+            <p className="eyebrow" id="clue-heading"><span aria-hidden="true">✦</span> CLUE REVEALED</p>
+            <span className="clue-stage">LEVEL {levelNumber}</span>
+          </div>
+
+          <div className="clue-display" aria-live="polite">
+            <p className="clue-text">{clue}</p>
+          </div>
+
+          <div className="clue-entry">
+            <label htmlFor="level-code">
+              <span aria-hidden="true">⚿</span> Enter the unique code you found
+            </label>
+            <div className="clue-code-row">
+              <input
+                id="level-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="e.g. LIB123"
+                autoComplete="off"
+                spellCheck="false"
+              />
+              <button className="submit-button" onClick={submitCode}>
+                Unlock next level <span>→</span>
+              </button>
+            </div>
+          </div>
+
+          {message && (
+            <p className={`clue-feedback ${messageType === "error" ? "is-error" : "is-success"}`}
+              role={messageType === "error" ? "alert" : "status"}>
+              {message}
+            </p>
+          )}
         </section>
       )}
 
-      {message && <p className="login-error">{message}</p>}
+      {!clue && message && <p className="login-error">{message}</p>}
     </main>
   );
 }
