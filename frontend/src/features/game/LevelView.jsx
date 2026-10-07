@@ -19,6 +19,7 @@ export default function LevelView({ team, levelNumber, onBack }) {
   const [clue, setClue] = useState(null);
   const [selected, setSelected] = useState(null);
   const [code, setCode] = useState("");
+  const [answerCorrect, setAnswerCorrect] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [lockUntil, setLockUntil] = useState(null);
@@ -108,6 +109,7 @@ export default function LevelView({ team, levelNumber, onBack }) {
     if (selected === null || locked) return;
     setMessage("");
     setMessageType("");
+    setAnswerCorrect(false);
     const res = await fetch(`${serverUrl}/api/game/answer`, {
       method: "POST",
       headers: {
@@ -123,8 +125,7 @@ export default function LevelView({ team, levelNumber, onBack }) {
       return setMessage(json.message || "Wrong.");
     }
     setClue(json.clue);
-    setMessageType("success");
-    setMessage("✅ Correct! Here's your clue:");
+    setAnswerCorrect(true);
   }
 
   async function submitCode() {
@@ -235,6 +236,12 @@ export default function LevelView({ team, levelNumber, onBack }) {
           <div className="clue-display" aria-live="polite">
             <p className="clue-text">{clue}</p>
           </div>
+
+          {answerCorrect && (
+            <p className="clue-feedback is-success" role="status">
+              ✅ Correct! Here's your clue:
+            </p>
+          )}
 
           <div className="clue-entry">
             <label htmlFor="level-code">
