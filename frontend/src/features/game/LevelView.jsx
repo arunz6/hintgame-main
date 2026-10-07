@@ -171,8 +171,13 @@ export default function LevelView({ team, levelNumber, onBack }) {
 
   return (
     <main className="level-page">
-      <button className="text-button" onClick={goBack}>← Back</button>
-      <h1>{level.title}</h1>
+      <header className="level-heading">
+        <button className="text-button level-back-button" onClick={goBack}>← Back</button>
+        <h1>{level.title}</h1>
+        <span className="level-heading-rule" aria-hidden="true">
+          <span>◎</span>
+        </span>
+      </header>
 
       {locked && (
         <div className="lock-banner">
@@ -181,23 +186,33 @@ export default function LevelView({ team, levelNumber, onBack }) {
       )}
 
       {!clue && (
-        <section className="level-card-large">
-          <h2>{level.mcq.question}</h2>
-          <div className="options">
+        <section className="level-card-large level-question-card">
+          <h2 id="level-question">{level.mcq.question}</h2>
+          <fieldset className="options" aria-labelledby="level-question" disabled={Boolean(locked)}>
+            <legend className="visually-hidden">{level.mcq.question}</legend>
             {level.mcq.options.map((opt, i) => (
-              <button
+              <label
                 key={i}
                 className={`option ${selected === i ? "selected" : ""}`}
-                onClick={() => !locked && setSelected(i)}
-                disabled={locked}
               >
-                {opt}
-              </button>
+                <span className="option-marker" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
+                <span className="option-copy">{opt}</span>
+                <input
+                  className="option-radio"
+                  type="radio"
+                  name="level-answer"
+                  value={i}
+                  checked={selected === i}
+                  onChange={() => setSelected(i)}
+                />
+              </label>
             ))}
+          </fieldset>
+          <div className="level-actions">
+            <button className="submit-button" onClick={submitAnswer} disabled={locked || selected === null}>
+              Submit answer <span>→</span>
+            </button>
           </div>
-          <button className="submit-button" onClick={submitAnswer} disabled={locked}>
-            Submit answer <span>→</span>
-          </button>
         </section>
       )}
 
