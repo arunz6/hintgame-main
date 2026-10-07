@@ -155,18 +155,23 @@ export default function Dashboard({ team }) {
           )}
         </section>
       ) : (
-        <section className="levels-grid">
+        <section className="levels-grid" aria-label="Game levels">
           {data.levels?.length ? data.levels.map((lv) => (
             <button
               key={lv.number}
-              className={`level-card ${lv.locked ? "locked" : ""} ${lv.completed ? "completed" : ""}`}
+              className={`level-card ${lv.locked ? "locked" : ""} ${lv.completed ? "completed" : "available"}`}
               disabled={lv.locked}
               onClick={() => navigate(`/game/level/${lv.number}`)}
             >
-              <span className="level-number">0{lv.number}</span>
+              <span className="level-card-corners" aria-hidden="true" />
+              <span className="level-card-symbol" aria-hidden="true">
+                {lv.completed ? "✓" : lv.locked ? "·" : "●"}
+              </span>
+              <span className="level-number">{String(lv.number).padStart(2, "0")}</span>
               <span className="level-title">{lv.title}</span>
-              <span className="level-status">
-                {lv.completed ? "✅ Completed" : lv.locked ? "🔒 Locked" : "▶ Play"}
+              <span className={`level-status ${lv.locked ? "is-locked" : lv.completed ? "is-completed" : "is-available"}`}>
+                <span aria-hidden="true">{lv.completed ? "✓" : lv.locked ? "🔒" : "▶"}</span>
+                {lv.completed ? "COMPLETED" : lv.locked ? "LOCKED" : "PLAY"}
               </span>
             </button>
           )) : <p>No levels found. Add level data to the hintgame database.</p>}

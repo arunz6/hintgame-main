@@ -361,6 +361,777 @@ h1 {
 		transition-duration: 0.01ms !important;
 	}
 }
+
+.auth-login-page {
+	position: relative;
+	overflow: hidden;
+	padding: clamp(24px, 5vw, 64px);
+	background:
+		radial-gradient(ellipse at 18% 50%, rgba(120, 158, 93, 0.13), transparent 38%),
+		radial-gradient(ellipse at 92% 12%, rgba(182, 243, 107, 0.07), transparent 30%);
+}
+
+.auth-login-layout {
+	display: grid;
+	width: min(100%, 1040px);
+	grid-template-columns: minmax(0, 1fr) minmax(340px, 430px);
+	align-items: center;
+	gap: clamp(36px, 7vw, 100px);
+	margin: 0 auto;
+}
+
+.auth-login-intro {
+	position: relative;
+	padding: 20px 0;
+}
+
+.auth-orbit {
+	position: relative;
+	display: grid;
+	width: clamp(160px, 22vw, 250px);
+	aspect-ratio: 1;
+	place-items: center;
+	margin-bottom: clamp(36px, 6vw, 72px);
+	border: 1px solid rgba(182, 243, 107, 0.2);
+	border-radius: 50%;
+	background:
+		radial-gradient(circle, rgba(182, 243, 107, 0.08) 0 34%, transparent 35%),
+		repeating-radial-gradient(circle, transparent 0 29px, rgba(255, 255, 255, 0.055) 30px 31px);
+	box-shadow: 0 0 90px rgba(182, 243, 107, 0.08);
+}
+
+.auth-orbit::before,
+.auth-orbit::after {
+	position: absolute;
+	border: 1px solid rgba(182, 243, 107, 0.22);
+	border-radius: 50%;
+	content: "";
+}
+
+.auth-orbit::before {
+	inset: 13%;
+}
+
+.auth-orbit::after {
+	inset: 27%;
+	border-style: dashed;
+}
+
+.auth-orbit-core {
+	z-index: 1;
+	display: grid;
+	width: 60px;
+	aspect-ratio: 1;
+	place-items: center;
+	border-radius: 18px;
+	background: var(--color-accent);
+	color: #172014;
+	font-family: Georgia, serif;
+	font-size: 36px;
+	font-weight: 700;
+	box-shadow: 0 0 34px rgba(182, 243, 107, 0.2);
+}
+
+.auth-orbit-label {
+	position: absolute;
+	right: -24px;
+	bottom: 18%;
+	padding: 8px 11px;
+	border: 1px solid #343d36;
+	border-radius: 3px;
+	background: #151a17;
+	color: #c1c9c2;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 1.2px;
+}
+
+.auth-login-intro .eyebrow {
+	margin: 0 0 16px;
+	color: var(--color-accent);
+}
+
+.auth-login-intro h2 {
+	max-width: 530px;
+	margin: 0;
+	color: #f4f5f2;
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: clamp(38px, 5.7vw, 68px);
+	font-weight: 400;
+	letter-spacing: -1.8px;
+	line-height: 1.04;
+}
+
+.auth-intro-copy {
+	max-width: 390px;
+	margin: 20px 0 0;
+	color: #a2aaa5;
+	font-size: 15px;
+	line-height: 1.8;
+}
+
+.auth-intro-footer {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 44px;
+	color: #858f88;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 1.3px;
+}
+
+.auth-live-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--color-accent);
+	box-shadow: 0 0 12px rgba(182, 243, 107, 0.7);
+}
+
+.auth-login-panel {
+	width: 100%;
+	padding: clamp(28px, 4vw, 42px);
+	border-color: #343d36;
+	border-radius: 12px;
+	background: linear-gradient(145deg, rgba(27, 33, 29, 0.98), rgba(17, 22, 19, 0.98));
+	box-shadow: 0 30px 100px rgba(0, 0, 0, 0.42), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+.auth-panel-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-bottom: 19px;
+	border-bottom: 1px solid #303832;
+	color: #929c95;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 1.5px;
+}
+
+.auth-panel-heading .brand-mark {
+	width: 34px;
+	height: 34px;
+	border-radius: 8px;
+	font-size: 21px;
+}
+
+.auth-login-panel > .eyebrow {
+	margin-top: 28px;
+}
+
+.auth-login-panel h1 {
+	font-size: clamp(32px, 4vw, 40px);
+}
+
+.auth-login-panel .panel-copy {
+	margin-bottom: 22px;
+}
+
+.auth-login-panel .login-form {
+	gap: 9px;
+}
+
+.auth-login-panel .login-form input {
+	height: 52px;
+	border-radius: 7px;
+}
+
+.auth-login-panel .submit-button {
+	min-height: 52px;
+	margin-top: 17px;
+	border-radius: 7px;
+}
+
+.auth-login-panel .secure-note {
+	margin-top: 22px;
+}
+
+.auth-login-panel .auth-switch {
+	margin-top: 14px;
+	font-size: 12px;
+	line-height: 1.6;
+}
+
+.auth-login-panel .text-button {
+	margin-top: 24px;
+}
+
+@media (max-width: 760px) {
+	.auth-login-page {
+		align-items: start;
+		padding: 36px 24px;
+	}
+
+	.auth-login-layout {
+		max-width: 520px;
+		grid-template-columns: 1fr;
+		gap: 30px;
+	}
+
+	.auth-login-intro {
+		padding: 0;
+	}
+
+	.auth-orbit {
+		width: 132px;
+		margin: 0 0 30px auto;
+	}
+
+	.auth-orbit-core {
+		width: 45px;
+		font-size: 28px;
+	}
+
+	.auth-orbit-label {
+		right: -12px;
+		font-size: 8px;
+	}
+
+	.auth-login-intro .eyebrow {
+		margin-bottom: 11px;
+	}
+
+	.auth-login-intro h2 {
+		max-width: 440px;
+		font-size: clamp(36px, 8vw, 54px);
+	}
+
+	.auth-intro-copy {
+		margin-top: 12px;
+		font-size: 14px;
+	}
+
+	.auth-intro-footer {
+		margin-top: 20px;
+	}
+}
+
+@media (max-width: 420px) {
+	.auth-login-page {
+		padding: 28px 16px;
+	}
+
+	.auth-login-layout {
+		gap: 22px;
+	}
+
+	.auth-orbit {
+		width: 100px;
+		margin-bottom: 22px;
+	}
+
+	.auth-orbit-core {
+		width: 38px;
+		border-radius: 12px;
+		font-size: 24px;
+	}
+
+	.auth-login-panel {
+		padding: 26px 21px;
+	}
+
+	.auth-login-panel .panel-copy {
+		margin-bottom: 18px;
+	}
+
+	.auth-login-panel .login-form input {
+		height: 49px;
+	}
+}
+
+.final-clue-page {
+	position: relative;
+	isolation: isolate;
+	overflow: hidden;
+	min-height: 100svh;
+	padding: clamp(24px, 5vh, 52px) 18px;
+	background:
+		radial-gradient(ellipse at 50% 45%, rgba(31, 46, 57, 0.68), transparent 48%),
+		radial-gradient(ellipse at 50% 100%, rgba(94, 59, 20, 0.17), transparent 50%),
+		#070a10;
+}
+
+.final-clue-page::before,
+.final-clue-page::after {
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	pointer-events: none;
+	content: "";
+}
+
+.final-clue-page::before {
+	background:
+		radial-gradient(ellipse at center, transparent 5%, rgba(4, 6, 10, 0.28) 48%, rgba(2, 3, 7, 0.92) 100%),
+		linear-gradient(180deg, rgba(4, 7, 12, 0.46), rgba(4, 6, 10, 0.18) 46%, rgba(2, 3, 7, 0.88));
+}
+
+.final-clue-page::after {
+	opacity: 0.38;
+	background-image: radial-gradient(rgba(214, 191, 139, 0.5) 0.8px, transparent 0.8px);
+	background-size: 19px 19px;
+	mask-image: linear-gradient(to bottom, #000, transparent 82%);
+}
+
+.final-clue-shell {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	width: min(100%, 520px);
+	flex-direction: column;
+	align-items: center;
+	margin: 0 auto;
+}
+
+.final-clue-header {
+	width: 100%;
+	margin: 0 0 clamp(22px, 4vh, 34px);
+	text-align: center;
+}
+
+.final-clue-starline {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	margin-bottom: 8px;
+	color: #d4af37;
+	opacity: 0.82;
+}
+
+.final-clue-starline span {
+	width: 48px;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, #b58b32);
+}
+
+.final-clue-starline span:last-child {
+	transform: rotate(180deg);
+}
+
+.final-clue-starline svg {
+	width: 14px;
+	height: 14px;
+}
+
+.final-clue-header h1 {
+	background: linear-gradient(180deg, #fff5cf 0%, #edcf76 42%, #bd9131 74%, #79551a 100%);
+	background-clip: text;
+	color: transparent;
+	filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 20px rgba(212, 175, 55, 0.2));
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: clamp(30px, 7vw, 46px);
+	font-weight: 700;
+	letter-spacing: clamp(0.12em, 2vw, 0.22em);
+	line-height: 1.2;
+	text-indent: 0.12em;
+}
+
+.final-clue-rule {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-top: 12px;
+}
+
+.final-clue-rule::before,
+.final-clue-rule::after {
+	width: 68px;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, rgba(180, 140, 50, 0.8));
+	content: "";
+}
+
+.final-clue-rule::after {
+	transform: rotate(180deg);
+}
+
+.final-clue-rule span {
+	width: 6px;
+	height: 6px;
+	margin: 0 9px;
+	border-radius: 50%;
+	background: #d4af37;
+	box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+}
+
+.final-clue-card {
+	position: relative;
+	isolation: isolate;
+	overflow: hidden;
+	width: 100%;
+	padding: clamp(28px, 6vw, 40px);
+	border: 1px solid rgba(212, 175, 55, 0.39);
+	border-radius: 10px;
+	background:
+		radial-gradient(ellipse at 50% 0%, rgba(62, 46, 25, 0.3), transparent 66%),
+		linear-gradient(180deg, rgba(18, 21, 28, 0.98), rgba(9, 12, 19, 0.99));
+	box-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.85),
+		0 0 0 5px rgba(35, 28, 19, 0.62),
+		0 0 0 6px rgba(180, 140, 50, 0.2),
+		0 26px 70px rgba(0, 0, 0, 0.78),
+		0 0 48px rgba(212, 175, 55, 0.09);
+	animation: panel-arrive 420ms ease-out both;
+}
+
+.final-clue-card::before {
+	position: absolute;
+	z-index: -1;
+	inset: 4px;
+	border: 1px solid rgba(162, 123, 56, 0.19);
+	border-radius: 6px;
+	content: "";
+	pointer-events: none;
+}
+
+.final-clue-corner {
+	position: absolute;
+	z-index: 2;
+	width: 21px;
+	height: 21px;
+	border-color: rgba(237, 225, 195, 0.85);
+	pointer-events: none;
+}
+
+.corner-top-left {
+	top: 8px;
+	left: 8px;
+	border-top: 2px solid;
+	border-left: 2px solid;
+}
+
+.corner-top-right {
+	top: 8px;
+	right: 8px;
+	border-top: 2px solid;
+	border-right: 2px solid;
+}
+
+.corner-bottom-left {
+	bottom: 8px;
+	left: 8px;
+	border-bottom: 2px solid;
+	border-left: 2px solid;
+}
+
+.corner-bottom-right {
+	right: 8px;
+	bottom: 8px;
+	border-right: 2px solid;
+	border-bottom: 2px solid;
+}
+
+.final-clue-compass {
+	position: absolute;
+	z-index: -1;
+	top: -35px;
+	right: -35px;
+	width: clamp(135px, 30vw, 190px);
+	color: #d4af37;
+	fill: currentColor;
+	opacity: 0.035;
+	pointer-events: none;
+}
+
+.final-clue-compass circle {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.5;
+}
+
+.final-clue-content {
+	position: relative;
+	z-index: 1;
+}
+
+.final-clue-card-heading {
+	margin-bottom: 24px;
+	text-align: center;
+}
+
+.final-clue-card .final-clue-eyebrow {
+	margin: 0 0 10px;
+	background: linear-gradient(180deg, #dfc699, #ad8a4e);
+	background-clip: text;
+	color: transparent;
+	font-size: 10px;
+	letter-spacing: 0.24em;
+}
+
+.final-clue-card-heading h2,
+.final-clue-content > h2 {
+	margin: 0;
+	color: #f5ebd7;
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: clamp(25px, 5vw, 31px);
+	font-weight: 700;
+	letter-spacing: 0.025em;
+	line-height: 1.2;
+	text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+}
+
+.final-clue-card-heading > p:last-child {
+	margin: 9px 0 0;
+	color: rgba(226, 216, 195, 0.8);
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: 14px;
+	line-height: 1.55;
+}
+
+.final-clue-form {
+	gap: 19px;
+}
+
+.final-clue-field label {
+	display: block;
+	margin: 0 0 8px;
+	color: #e0cfab;
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+}
+
+.final-clue-input-wrap {
+	position: relative;
+}
+
+.final-clue-input-wrap > svg {
+	position: absolute;
+	top: 50%;
+	left: 13px;
+	width: 16px;
+	height: 16px;
+	transform: translateY(-50%);
+	fill: none;
+	stroke: #b99349;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-width: 1.7;
+	pointer-events: none;
+}
+
+.final-clue-input-wrap input {
+	width: 100%;
+	height: 49px;
+	padding: 0 14px 0 40px;
+	border: 1px solid rgba(162, 123, 56, 0.43);
+	border-radius: 7px;
+	outline: none;
+	background: linear-gradient(180deg, rgba(7, 10, 16, 0.94), rgba(14, 19, 29, 0.92));
+	box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.65), 0 1px 0 rgba(212, 175, 55, 0.08);
+	color: #f8f5ee;
+	font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+	font-size: 14px;
+	letter-spacing: 0.02em;
+	transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.final-clue-input-wrap input::placeholder {
+	color: #718096;
+}
+
+.final-clue-input-wrap input:focus {
+	border-color: #d4af37;
+	box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.72), 0 0 0 3px rgba(212, 175, 55, 0.12), 0 0 18px rgba(212, 175, 55, 0.2);
+}
+
+.final-clue-input-wrap input:disabled {
+	opacity: 0.65;
+}
+
+.final-clue-card .login-error {
+	margin: -7px 0 0;
+	color: #ff9a8a;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.final-clue-card .final-clue-submit {
+	display: flex;
+	width: 100%;
+	min-height: 50px;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 3px;
+	padding: 0 18px;
+	border: 1px solid #8e6d2e;
+	border-radius: 7px;
+	background: linear-gradient(180deg, #f5ebd3 0%, #e2d1ab 48%, #c8b082 100%);
+	box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.65), inset 0 -2px 4px rgba(78, 51, 15, 0.24), 0 4px 15px rgba(0, 0, 0, 0.48), 0 0 15px rgba(212, 175, 55, 0.14);
+	color: #2b1d0c;
+	cursor: pointer;
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+	transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.final-clue-card .final-clue-submit:hover:not(:disabled) {
+	transform: translateY(-1px);
+	background: linear-gradient(180deg, #fff4dc 0%, #ebd9b5 48%, #d4be91 100%);
+	box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.75), 0 6px 20px rgba(0, 0, 0, 0.58), 0 0 24px rgba(212, 175, 55, 0.3);
+}
+
+.final-clue-card .final-clue-submit:active:not(:disabled) {
+	transform: translateY(1px);
+}
+
+.final-clue-card .final-clue-submit:disabled {
+	cursor: wait;
+	opacity: 0.72;
+}
+
+.final-clue-submit-icon {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: #5f481f;
+}
+
+.final-clue-submit-icon svg {
+	width: 13px;
+	height: 13px;
+	transition: transform 180ms ease;
+}
+
+.final-clue-submit:hover:not(:disabled) .final-clue-submit-icon svg {
+	transform: rotate(45deg);
+}
+
+.final-clue-submit-icon > span {
+	font-family: Arial, sans-serif;
+	font-size: 21px;
+	line-height: 1;
+	transition: transform 180ms ease;
+}
+
+.final-clue-submit:hover:not(:disabled) .final-clue-submit-icon > span {
+	transform: translateX(3px);
+}
+
+.final-clue-footer {
+	display: grid;
+	gap: 9px;
+	margin-top: 25px;
+	padding-top: 19px;
+	border-top: 1px solid rgba(162, 123, 56, 0.22);
+	text-align: center;
+}
+
+.final-clue-footer p {
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 8px;
+	margin: 0;
+	color: rgba(226, 216, 195, 0.84);
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.final-clue-footer p + p {
+	color: #8993a1;
+	font-size: 11px;
+}
+
+.final-clue-footer p span {
+	flex: 0 0 auto;
+	color: #d4af37;
+}
+
+.final-clue-caption {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 22px 0 0;
+	color: rgba(162, 123, 56, 0.58);
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: 10px;
+	letter-spacing: 0.2em;
+	text-align: center;
+}
+
+.final-clue-signout {
+	margin-top: 24px;
+	padding: 10px 0;
+	border: 0;
+	background: transparent;
+	color: #dfc699;
+	cursor: pointer;
+	font-size: 13px;
+	text-decoration: underline;
+	text-underline-offset: 4px;
+}
+
+.final-clue-status {
+	border-color: rgba(162, 123, 56, 0.3);
+	color: #cbd5e1;
+}
+
+.final-clue-status strong {
+	color: #e6c36b;
+}
+
+@media (max-width: 480px) {
+	.final-clue-page {
+		padding: 28px 18px 22px;
+	}
+
+	.final-clue-header {
+		margin-bottom: 22px;
+	}
+
+	.final-clue-header h1 {
+		font-size: clamp(27px, 8vw, 36px);
+		letter-spacing: 0.12em;
+	}
+
+	.final-clue-card {
+		padding: 30px 24px;
+	}
+
+	.final-clue-card-heading {
+		margin-bottom: 21px;
+	}
+
+	.final-clue-form {
+		gap: 17px;
+	}
+
+	.final-clue-footer {
+		margin-top: 21px;
+		padding-top: 17px;
+	}
+}
+
+@media (max-width: 360px) {
+	.final-clue-page {
+		padding-right: 14px;
+		padding-left: 14px;
+	}
+
+	.final-clue-card {
+		padding-right: 20px;
+		padding-left: 20px;
+	}
+
+	.final-clue-card-heading > p:last-child {
+		font-size: 13px;
+	}
+
+	.final-clue-footer p {
+		font-size: 11px;
+	}
+}
+
 /* ===== HINTGAME GAME UI (appended) ===== */
 .dashboard-page, .level-page {
   min-height: 100vh;
@@ -709,6 +1480,304 @@ h1 {
 }
 .member-row-admin { display: flex; gap: 6px; align-items: center; }
 .member-row-admin input { flex: 1; }
+
+/* ===== RESPONSIVE LEVEL SELECTOR ===== */
+.dashboard-page {
+  --dashboard-gold: #d7b347;
+  --dashboard-gold-bright: #f2d36f;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: min(100%, 1240px);
+  max-width: 1240px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(24px, 5vw, 64px) clamp(16px, 4vw, 52px);
+  color: #f1ecda;
+}
+
+.dashboard-page::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(152, 112, 28, 0.1), transparent 58%),
+    linear-gradient(135deg, rgba(6, 9, 12, 0.4), rgba(9, 12, 16, 0.94));
+  content: "";
+  pointer-events: none;
+}
+
+.dashboard-page .dash-header {
+  align-items: flex-start;
+  margin-bottom: clamp(24px, 4vw, 42px);
+}
+
+.dashboard-page .eyebrow {
+  margin: 0 0 12px;
+  color: var(--dashboard-gold);
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+
+.dashboard-page h1 {
+  overflow-wrap: anywhere;
+  color: #f4e3a7;
+  font-size: clamp(30px, 5vw, 42px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dashboard-page .panel-copy {
+  margin: 10px 0 0;
+  color: #a8adb1;
+  font-size: 13px;
+}
+
+.dashboard-page .panel-copy strong {
+  color: #d7dce0;
+  font-weight: 600;
+}
+
+.dashboard-page > .dash-header .text-button {
+  flex: 0 0 auto;
+  margin: 5px 0 0;
+  color: #a8adb1;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.dashboard-page > .dash-header .text-button:hover {
+  color: var(--dashboard-gold-bright);
+}
+
+.dashboard-page .levels-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(12px, 2vw, 20px);
+}
+
+.dashboard-page .level-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 258px;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  padding: 24px 18px 18px;
+  border: 1px solid #292f36;
+  border-radius: 7px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.035), transparent 65%),
+    linear-gradient(155deg, rgba(22, 27, 34, 0.98), rgba(11, 15, 21, 0.99));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.025);
+  text-align: center;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.dashboard-page .level-card-corners {
+  position: absolute;
+  inset: 7px;
+  border-radius: 2px;
+  background:
+    linear-gradient(var(--dashboard-gold), var(--dashboard-gold)) left top / 8px 1px no-repeat,
+    linear-gradient(var(--dashboard-gold), var(--dashboard-gold)) left top / 1px 8px no-repeat,
+    linear-gradient(var(--dashboard-gold), var(--dashboard-gold)) right top / 8px 1px no-repeat,
+    linear-gradient(var(--dashboard-gold), var(--dashboard-gold)) right top / 1px 8px no-repeat,
+    linear-gradient(var(--dashboard-gold), var(--dashboard-gold)) left bottom / 8px 1px no-repeat,
+    linear-gradient(var(--dashboard-gold), var(--dashboard-gold)) left bottom / 1px 8px no-repeat,
+    linear-gradient(var(--dashboard-gold), var(--dashboard-gold)) right bottom / 8px 1px no-repeat,
+    linear-gradient(var(--dashboard-gold), var(--dashboard-gold)) right bottom / 1px 8px no-repeat;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.dashboard-page .level-card-symbol {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  color: var(--dashboard-gold);
+  font-size: 9px;
+}
+
+.dashboard-page .level-number {
+  margin-top: 10px;
+  color: #48515d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(42px, 5vw, 60px);
+  font-weight: 700;
+  line-height: 1;
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+
+.dashboard-page .level-title {
+  display: -webkit-box;
+  min-height: 2.8em;
+  overflow: hidden;
+  color: #8d969f;
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.dashboard-page .level-status {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 8px 10px;
+  border: 1px solid #2b313a;
+  border-radius: 4px;
+  color: #828b96;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.dashboard-page .level-status > span {
+  color: var(--dashboard-gold);
+}
+
+.dashboard-page .level-card.available {
+  border-color: #8f7429;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(207, 163, 47, 0.13), transparent 60%),
+    linear-gradient(155deg, rgba(34, 31, 24, 0.99), rgba(17, 19, 21, 0.99));
+  box-shadow: 0 0 28px rgba(199, 154, 37, 0.1), 0 16px 34px rgba(0, 0, 0, 0.32);
+}
+
+.dashboard-page .level-card.available .level-card-corners {
+  opacity: 0.8;
+}
+
+.dashboard-page .level-card.available .level-number,
+.dashboard-page .level-card.completed .level-number {
+  color: var(--dashboard-gold-bright);
+  text-shadow: 0 0 20px rgba(226, 186, 73, 0.22);
+}
+
+.dashboard-page .level-card.available .level-title,
+.dashboard-page .level-card.completed .level-title {
+  color: #e0d9c5;
+}
+
+.dashboard-page .level-card.available .level-status {
+  border-color: #d1ac45;
+  background: linear-gradient(180deg, #edcf71, #b9902c);
+  color: #171710;
+}
+
+.dashboard-page .level-card.available .level-status > span {
+  color: #171710;
+}
+
+.dashboard-page .level-card.completed {
+  border-color: rgba(215, 179, 71, 0.55);
+}
+
+.dashboard-page .level-card.completed .level-status {
+  border-color: rgba(215, 179, 71, 0.4);
+  color: var(--dashboard-gold-bright);
+}
+
+.dashboard-page .level-card.locked {
+  opacity: 0.72;
+}
+
+.dashboard-page .level-card:hover:not(:disabled) {
+  transform: translateY(-4px);
+  border-color: var(--dashboard-gold-bright);
+  box-shadow: 0 0 30px rgba(199, 154, 37, 0.17), 0 18px 38px rgba(0, 0, 0, 0.36);
+}
+
+.dashboard-page .level-card:focus-visible,
+.dashboard-page .text-button:focus-visible {
+  outline: 2px solid var(--dashboard-gold-bright);
+  outline-offset: 4px;
+}
+
+@media (max-width: 760px) {
+  .dashboard-page .levels-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-page .dash-header {
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .dashboard-page .eyebrow {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+  }
+
+  .dashboard-page .panel-copy {
+    max-width: 27ch;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .dashboard-page .levels-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .dashboard-page .level-card {
+    display: grid;
+    min-height: 156px;
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-rows: 20px 1fr auto;
+    gap: 3px 14px;
+    padding: 15px;
+    text-align: left;
+  }
+
+  .dashboard-page .level-card-symbol {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .dashboard-page .level-number {
+    grid-column: 1;
+    grid-row: 2;
+    margin: 0;
+    font-size: 42px;
+  }
+
+  .dashboard-page .level-title {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    min-height: 0;
+    font-size: 13px;
+  }
+
+  .dashboard-page .level-status {
+    min-height: 34px;
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-page .level-card,
+  .dashboard-page .level-number {
+    transition: none;
+  }
+}
 
 @media (max-width: 720px) {
   .edit-grid { grid-template-columns: 1fr; }
