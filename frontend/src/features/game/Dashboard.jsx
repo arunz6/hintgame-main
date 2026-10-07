@@ -105,7 +105,7 @@ export default function Dashboard({ team }) {
       <main className="login-page player-state-page">
         <section className="login-panel player-state-panel">
           <p className="eyebrow">HINTGAME / OMEGA TRIGGER</p>
-          <h1>Final processing cycle</h1>
+          <h1>THE FINAL CLUE</h1>
           <p className="panel-copy">{data.completionMessage}</p>
           <button className="text-button player-state-signout" onClick={handleLogout}>Sign out</button>
         </section>
