@@ -108,6 +108,13 @@ export default function Leaderboard() {
       )}
 
       <section className="leaderboard-table-wrap">
+        <header className="leaderboard-section-heading">
+          <div>
+            <p className="eyebrow">CAPTAIN'S FLEET LEDGER</p>
+            <h2>Team standings</h2>
+          </div>
+          <span className="leaderboard-dispatch"><span className="live-dot" /> Live dispatch</span>
+        </header>
         <table className="lb-table big">
           <thead>
             <tr>
@@ -136,20 +143,22 @@ export default function Leaderboard() {
 
               return (
                 <tr key={t.teamCode} className={rowClass}>
-                  <td className="rank-cell">
+                  <td className="rank-cell" data-label="Rank">
                     {t.rank === 1 ? "🥇" : t.rank === 2 ? "🥈" : t.rank === 3 ? "🥉" : t.rank}
                   </td>
-                  <td>
-                    <strong>{t.teamName}</strong>
-                    <span className="team-code-badge small">{t.teamCode}</span>
+                  <td data-label="Team">
+                    <span className="leaderboard-team">
+                      <strong>{t.teamName}</strong>
+                      <span className="team-code-badge small">{t.teamCode}</span>
+                    </span>
                   </td>
-                  <td className="members-cell">
+                  <td className="members-cell" data-label="Members">
                     {t.members.join(", ")}
                   </td>
-                  <td>
+                  <td data-label="Level">
                     <span className="level-chip">Lv {t.currentLevel}</span>
                   </td>
-                  <td>
+                  <td data-label="Status">
                     <span className={`status-chip status-${t.status}`}>
                       {t.status === "playing" && "▶ Playing"}
                       {t.status === "finished" && "🏁 Finished"}
@@ -157,7 +166,7 @@ export default function Leaderboard() {
                       {t.status === "not_started" && "· Not started"}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Locked">
                     {t.lockedNow ? (
                       <span className="lock-chip">
                         🔒 {formatTimeLeft(lockedTimeLeft)}
@@ -166,7 +175,7 @@ export default function Leaderboard() {
                       <span className="muted">—</span>
                     )}
                   </td>
-                  <td className="medal-cell">
+                  <td className="medal-cell" data-label="Medal">
                     {medal ? (
                       <span className="medal-big">{medal}</span>
                     ) : (
