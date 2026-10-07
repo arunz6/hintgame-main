@@ -83,17 +83,18 @@ export default function Dashboard({ team }) {
     navigate("/login", { replace: true });
   }
 
-  if (loading) return <main className="login-page"><p>Loading…</p></main>;
-  if (loadError) return <main className="login-page"><p>{loadError}</p></main>;
-  if (!data) return <main className="login-page"><p>Could not load levels.</p></main>;
+  if (loading) return <main className="login-page player-state-page"><section className="login-panel player-state-panel"><p className="eyebrow">HINTGAME / TEAM DASHBOARD</p><h1>Loading your game…</h1></section></main>;
+  if (loadError) return <main className="login-page player-state-page"><section className="login-panel player-state-panel"><p className="eyebrow">CONNECTION STATUS</p><h1>Unable to load your game</h1><p className="panel-copy">{loadError}</p></section></main>;
+  if (!data) return <main className="login-page player-state-page"><section className="login-panel player-state-panel"><p className="eyebrow">HINTGAME / TEAM DASHBOARD</p><h1>Could not load levels</h1><p className="panel-copy">Please refresh the page and try again.</p></section></main>;
 
   if (data.team?.status === "eliminated") {
     return (
-      <main className="login-page">
-        <section className="login-panel">
+      <main className="login-page player-state-page">
+        <section className="login-panel player-state-panel">
+          <p className="eyebrow">HINTGAME / EXPEDITION STATUS</p>
           <h1>You lose 😔</h1>
           <p className="panel-copy">Your team has been eliminated from the Hint Game. Better luck next time.</p>
-          <button className="text-button" onClick={handleLogout}>Sign out</button>
+          <button className="text-button player-state-signout" onClick={handleLogout}>Sign out</button>
         </section>
       </main>
     );
@@ -101,12 +102,12 @@ export default function Dashboard({ team }) {
 
   if (data.team?.status === "finished") {
     return (
-      <main className="login-page">
-        <section className="login-panel">
+      <main className="login-page player-state-page">
+        <section className="login-panel player-state-panel">
           <p className="eyebrow">HINTGAME / OMEGA TRIGGER</p>
           <h1>Final processing cycle</h1>
           <p className="panel-copy">{data.completionMessage}</p>
-          <button className="text-button" onClick={handleLogout}>Sign out</button>
+          <button className="text-button player-state-signout" onClick={handleLogout}>Sign out</button>
         </section>
       </main>
     );
@@ -129,7 +130,7 @@ export default function Dashboard({ team }) {
       {data.warning && <div className="warning-banner">{data.warning}</div>}
 
       {data.hunt?.status !== "running" ? (
-        <section className="level-card-large" aria-live="polite">
+        <section className="level-card-large dashboard-hunt-card" aria-live="polite">
           <p className="eyebrow">HUNT STATUS</p>
           <h2>
             {data.hunt?.status === "countdown"

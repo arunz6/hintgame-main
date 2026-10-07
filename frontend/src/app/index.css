@@ -2835,3 +2835,223 @@ h1 {
     grid-column: 1 / span 2;
   }
 }
+
+/* ===== PLAYER PORTAL FINISHING STYLES ===== */
+.player-state-page {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(118, 91, 34, 0.13), transparent 48%),
+    linear-gradient(145deg, #0b0f18, #090c13);
+  color: #e6e2d7;
+}
+
+.player-state-page::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-image: radial-gradient(rgba(214, 191, 139, 0.18) 0.7px, transparent 0.7px);
+  background-size: 20px 20px;
+  content: "";
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.player-state-panel {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(189, 151, 62, 0.42);
+  border-radius: 8px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(94, 67, 25, 0.2), transparent 68%),
+    linear-gradient(155deg, #191d27, #10141d);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 20px 60px rgba(0, 0, 0, 0.48);
+}
+
+.player-state-panel .eyebrow {
+  margin: 0 0 12px;
+  color: #d9b84f;
+  font-size: 10px;
+  letter-spacing: 1.8px;
+}
+
+.player-state-panel h1 {
+  color: #f0d47c;
+  font-size: clamp(30px, 7vw, 42px);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.player-state-panel .panel-copy {
+  margin: 14px 0 0;
+  color: #b2b4b8;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.player-state-panel .panel-copy strong {
+  color: #e5d39b;
+}
+
+.player-state-action,
+.player-state-signout {
+  margin-top: 24px;
+  color: #e2c45d;
+  text-decoration-color: rgba(226, 196, 93, 0.5);
+}
+
+.player-state-action:hover,
+.player-state-signout:hover {
+  color: #ffe58c;
+}
+
+.player-state-page .login-error {
+  color: #ffab9e;
+}
+
+.register-page {
+  padding: clamp(24px, 5vh, 54px) 16px;
+}
+
+.register-page .register-panel {
+  width: min(100%, 520px);
+  padding: clamp(24px, 5vw, 38px);
+}
+
+.register-page .brand-mark {
+  border: 1px solid #e5c55c;
+  background: linear-gradient(145deg, #f5dc87, #bb9133);
+  box-shadow: 0 0 20px rgba(227, 189, 77, 0.2);
+  color: #17140c;
+}
+
+.register-page .register-panel > .eyebrow {
+  margin: 20px 0 10px;
+  color: #d9b84f;
+}
+
+.register-page .register-panel .panel-copy {
+  margin: 10px 0 22px;
+  color: #b2b4b8;
+}
+
+.register-page .login-form {
+  gap: 10px;
+}
+
+.register-page .login-form > label,
+.register-page .members-heading {
+  color: #e1d7bd;
+}
+
+.register-page .login-form input {
+  border-color: #343946;
+  border-radius: 5px;
+  background: #0d111a;
+  color: #f1eee6;
+}
+
+.register-page .login-form input::placeholder {
+  color: #7e8794;
+}
+
+.register-page .login-form input:focus {
+  border-color: #d8b64d;
+  box-shadow: 0 0 0 3px rgba(216, 182, 77, 0.12);
+}
+
+.register-page .member-count {
+  color: #a69c83;
+}
+
+.register-page .remove-member {
+  border-color: #343946;
+  background: #10141d;
+  color: #d9c783;
+}
+
+.register-page .add-member,
+.register-page .auth-switch a {
+  color: #e0c45e;
+}
+
+.register-page .submit-button,
+.register-page .link-button {
+  border: 1px solid #e6c453;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #f4d66c, #d6ae3d);
+  color: #28200c;
+}
+
+.register-page .submit-button:hover:not(:disabled),
+.register-page .link-button:hover {
+  background: #ffe17a;
+}
+
+.register-page .auth-switch {
+  color: #a8a9ad;
+}
+
+.dashboard-page .dashboard-hunt-card {
+  border-color: rgba(189, 151, 62, 0.4);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(94, 67, 25, 0.18), transparent 68%),
+    linear-gradient(155deg, rgba(24, 28, 38, 0.98), rgba(12, 16, 24, 0.98));
+}
+
+.dashboard-page .dashboard-hunt-card h2 {
+  color: #f0d47c;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(23px, 4vw, 30px);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-page .dashboard-hunt-card .panel-copy strong {
+  color: #f0d47c;
+}
+
+.dashboard-page .warning-banner {
+  border-color: rgba(227, 189, 77, 0.38);
+  background: rgba(227, 189, 77, 0.08);
+  color: #ecd277;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-page .warning-banner.sneaky {
+  border-color: rgba(255, 130, 114, 0.35);
+  background: rgba(255, 100, 100, 0.08);
+  color: #ffab9e;
+}
+
+.spectator-page .level-card-large {
+  border-color: rgba(189, 151, 62, 0.4);
+  background: linear-gradient(155deg, rgba(24, 28, 38, 0.98), rgba(12, 16, 24, 0.98));
+}
+
+.spectator-page .level-card-large h2 {
+  color: #f0d47c;
+  font-size: clamp(23px, 4vw, 30px);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.spectator-page .level-card-large .panel-copy {
+  margin-bottom: 0;
+}
+
+@media (max-width: 480px) {
+  .register-page .register-panel {
+    padding: 24px 18px;
+  }
+
+  .register-page .members-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}

@@ -149,15 +149,15 @@ export default function LevelView({ team, levelNumber, onBack }) {
     setTimeout(goBack, 900);
   }
 
-  if (loading) return <main className="login-page"><p>Loading level…</p></main>;
-  if (loadError) return <main className="login-page"><p>{loadError}</p></main>;
+  if (loading) return <main className="login-page player-state-page"><section className="login-panel player-state-panel"><p className="eyebrow">HINTGAME / LEVEL {levelNumber}</p><h1>Loading your level…</h1></section></main>;
+  if (loadError) return <main className="login-page player-state-page"><section className="login-panel player-state-panel"><p className="eyebrow">CONNECTION STATUS</p><h1>Unable to load this level</h1><p className="panel-copy">{loadError}</p><button className="text-button player-state-action" onClick={goBack}>Return to levels</button></section></main>;
   if (hunt?.status !== "running") {
     const seconds = hunt?.startsAt
       ? Math.max(0, Math.ceil((new Date(hunt.startsAt).getTime() - now) / 1000))
       : null;
     return (
-      <main className="login-page">
-        <section className="login-panel" aria-live="polite">
+      <main className="login-page player-state-page">
+        <section className="login-panel player-state-panel" aria-live="polite">
           <p className="eyebrow">HINTGAME / {hunt?.status === "ended" ? "GAME ENDED" : "GET READY"}</p>
           <h1>
             {hunt?.status === "countdown"
@@ -177,7 +177,7 @@ export default function LevelView({ team, levelNumber, onBack }) {
       </main>
     );
   }
-  if (!level) return <main className="login-page"><p>Could not load level.</p></main>;
+  if (!level) return <main className="login-page player-state-page"><section className="login-panel player-state-panel"><p className="eyebrow">HINTGAME / LEVEL {levelNumber}</p><h1>Could not load level</h1><p className="panel-copy">Please return to the dashboard and try again.</p></section></main>;
 
   return (
     <main className="level-page">

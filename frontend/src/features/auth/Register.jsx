@@ -76,8 +76,8 @@ function Register() {
 
   if (registeredTeam) {
     return (
-      <main className="login-page">
-        <section className="login-panel" aria-labelledby="registered-title">
+      <main className="login-page player-state-page register-page">
+        <section className="login-panel player-state-panel register-panel" aria-labelledby="registered-title">
           <div className="brand-mark" aria-hidden="true">
             H
           </div>
@@ -95,9 +95,9 @@ function Register() {
   }
 
   return (
-    <main className="login-page register-page">
+    <main className="login-page player-state-page register-page">
       <section
-        className="login-panel register-panel"
+        className="login-panel player-state-panel register-panel"
         aria-labelledby="register-title"
       >
         <div className="brand-mark" aria-hidden="true">
