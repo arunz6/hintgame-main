@@ -3,7 +3,7 @@ import Team from "../model/user.schema.js";
 import Level from "../model/level.schema.js";
 import { getHuntState } from "../utils/hunt-state.js";
 
-const LOCK_MINUTES = 30;
+const LOCK_MINUTES = 5;
 const REFRESH_LOCK_MINUTES = 35;
 const ELIMINATION_TARGETS = { 1: 15, 2: 9, 3: 6, 4: 4 };
 const FINISHED_MESSAGE =
@@ -208,7 +208,7 @@ export async function submitAnswer(req, res) {
       await team.save();
       return res.status(400).json({
         correct: false,
-        message: "Wrong answer. Options locked for 30 minutes.",
+        message: `Wrong answer. Options locked for ${LOCK_MINUTES} minutes.`,
         lockUntil: team.lockUntil,
       });
     }
